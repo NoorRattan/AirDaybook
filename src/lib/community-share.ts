@@ -1,4 +1,8 @@
 import { isStaleObservation, observationTime, readingView, SOURCES, type ReadingSelection } from "./readings";
+import { DELHI_REPLAY, replayDate } from "./replay";
+
+const { invocation, revocation, additionalMeasures } = DELHI_REPLAY;
+const orders = [invocation.url, revocation.url, additionalMeasures.url].join("\n");
 
 const shareCopy = {
   en: {
@@ -16,10 +20,10 @@ const shareCopy = {
     scale: { india_naqi: "Indian AQI", us_aqi: "US AQI", unknown: "AQI (scale unspecified)" },
     basis: { overall: "overall", pollutant_subindex: "pollutant sub-index", unknown: "basis unspecified" },
     replay: [
-      "Historical replay · Delhi city AQI 382 · 6 November 2026",
-      "CAQM invoked GRAP Stage III ahead of forecast Severe conditions. On 17 November 2026, CAQM revoked Stage III after Delhi reported AQI 204. Stage I and II remained in force as of 17 November. A separate order scheduled additional measures for 5–20 November 2026.",
+      `Historical replay · Delhi city AQI ${invocation.aqi} · ${replayDate(invocation.date)}`,
+      `CAQM invoked GRAP Stage III ahead of forecast Severe conditions. On ${replayDate(revocation.date)}, CAQM revoked Stage III after Delhi reported AQI ${revocation.aqi}. Stage I and II remained in force as of that date. A separate order scheduled additional measures from ${replayDate(additionalMeasures.starts)} to ${replayDate(additionalMeasures.ends)}.`,
       "The Stage III invocation has been superseded.",
-      `CAQM orders: ${SOURCES.invocation}\n${SOURCES.revocation}\n${SOURCES.additionalMeasures}`,
+      `CAQM orders: ${orders}`,
     ],
     check: "Check CPCB for a recent local reading before confirming the group plan.",
   },
@@ -38,10 +42,10 @@ const shareCopy = {
     scale: { india_naqi: "भारतीय AQI", us_aqi: "अमेरिकी AQI", unknown: "AQI (पैमाना उपलब्ध नहीं है)" },
     basis: { overall: "समग्र", pollutant_subindex: "किसी एक प्रदूषक का उप-सूचकांक", unknown: "आधार उपलब्ध नहीं है" },
     replay: [
-      "ऐतिहासिक रिकॉर्ड · दिल्ली शहर का AQI 382 · 6 नवंबर 2026",
-      "वायु गुणवत्ता ‘गंभीर’ श्रेणी में पहुँचने के पूर्वानुमान पर CAQM ने GRAP का चरण III लागू किया। 17 नवंबर 2026 को दिल्ली का AQI 204 दर्ज होने के बाद CAQM ने चरण III हटा लिया। 17 नवंबर को चरण I और II लागू रहे। एक अलग आदेश में 5 से 20 नवंबर 2026 के लिए अतिरिक्त उपाय तय किए गए थे।",
+      `ऐतिहासिक रिकॉर्ड · दिल्ली शहर का AQI ${invocation.aqi} · ${replayDate(invocation.date, "hi-IN")}`,
+      `वायु गुणवत्ता ‘गंभीर’ श्रेणी में पहुँचने के पूर्वानुमान पर CAQM ने GRAP का चरण III लागू किया। ${replayDate(revocation.date, "hi-IN")} को दिल्ली का AQI ${revocation.aqi} दर्ज होने के बाद CAQM ने चरण III हटा लिया। उस दिन चरण I और II लागू रहे। एक अलग आदेश में ${replayDate(additionalMeasures.starts, "hi-IN")} से ${replayDate(additionalMeasures.ends, "hi-IN")} तक अतिरिक्त उपाय तय किए गए थे।`,
       "चरण III लागू करने वाला यह आदेश अब प्रभावी नहीं है।",
-      `CAQM के आदेश: ${SOURCES.invocation}\n${SOURCES.revocation}\n${SOURCES.additionalMeasures}`,
+      `CAQM के आदेश: ${orders}`,
     ],
     check: "समूह की योजना पक्की करने से पहले CPCB पर अपने इलाके का हाल का माप देखें।",
   },

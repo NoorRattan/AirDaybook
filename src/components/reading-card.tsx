@@ -1,7 +1,8 @@
 "use client";
 
 import { Clock3, MapPin, ArrowUpRight, Radio } from "lucide-react";
-import { readingView, SOURCES } from "@/lib/readings";
+import { readingView } from "@/lib/readings";
+import { DELHI_REPLAY, replayDate } from "@/lib/replay";
 import { useDraft } from "./draft-provider";
 
 export function ReadingCard() {
@@ -43,18 +44,24 @@ export function ReadingCard() {
 }
 
 export function ReplayDetails() {
+  const { place, invocation, revocation, additionalMeasures } = DELHI_REPLAY;
+  const datedOrders = [
+    { order: invocation, label: "invocation" },
+    { order: revocation, label: "revocation" },
+    { order: additionalMeasures, label: "order" },
+  ];
   return (
     <details className="replay-details">
       <summary>View the dated CAQM orders</summary>
       <ol className="order-timeline">
-        <li><time dateTime="2026-11-06">06 Nov 2026</time><p>Delhi reported city AQI 382. CAQM invoked GRAP Stage III ahead of forecast Severe conditions.</p></li>
-        <li><time dateTime="2026-11-17">17 Nov 2026</time><p>CAQM revoked Stage III when Delhi reported AQI 204. Stage I and II remained in force as of that date.</p></li>
+        <li><time dateTime={invocation.date}>{replayDate(invocation.date, "en-IN", "short")}</time><p>{place} reported city AQI {invocation.aqi}. CAQM invoked GRAP Stage III ahead of forecast Severe conditions.</p></li>
+        <li><time dateTime={revocation.date}>{replayDate(revocation.date, "en-IN", "short")}</time><p>CAQM revoked Stage III when {place} reported AQI {revocation.aqi}. Stage I and II remained in force as of that date.</p></li>
       </ol>
-      <p className="archive-note">The Stage III invocation is superseded. A separate order scheduled additional measures for 5–20 November 2026.</p>
+      <p className="archive-note">The Stage III invocation is superseded. A separate order scheduled additional measures from {replayDate(additionalMeasures.starts)} to {replayDate(additionalMeasures.ends)}.</p>
       <div className="source-links">
-        <a href={SOURCES.invocation} target="_blank" rel="noreferrer">6 November invocation <ArrowUpRight size={14} aria-hidden /></a>
-        <a href={SOURCES.revocation} target="_blank" rel="noreferrer">17 November revocation <ArrowUpRight size={14} aria-hidden /></a>
-        <a href={SOURCES.additionalMeasures} target="_blank" rel="noreferrer">30 October order <ArrowUpRight size={14} aria-hidden /></a>
+        {datedOrders.map(({ order, label }) => (
+          <a key={order.date} href={order.url} target="_blank" rel="noreferrer">{replayDate(order.date, "en-IN", "short")} {label} <ArrowUpRight size={14} aria-hidden /></a>
+        ))}
         <a href="https://caqm.nic.in/" target="_blank" rel="noreferrer">Current CAQM notices <ArrowUpRight size={14} aria-hidden /></a>
       </div>
     </details>

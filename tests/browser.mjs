@@ -19,7 +19,7 @@ function observe(page) {
 async function accessibility(page, name) {
   await page.addScriptTag({ path: require.resolve("axe-core") });
   const failures = await page.evaluate(async () => (await window.axe.run({
-    runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] },
+    runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"] },
   })).violations.map(({ id, nodes }) => ({ id, targets: nodes.map((node) => node.target) })));
   assert.deepEqual(failures, [], `${name} accessibility`);
 }
@@ -50,6 +50,7 @@ try {
   const dialog = page.getByRole("dialog", { name: "Enter a reading" });
   await dialog.waitFor();
   assert(await page.evaluate(() => Boolean(document.activeElement.closest("dialog"))));
+  await accessibility(page, "Open reading dialog");
   await page.keyboard.press("Escape");
   assert(await entry.evaluate((element) => element === document.activeElement));
 
@@ -69,18 +70,22 @@ try {
   await page.waitForFunction(() => document.querySelector('input[name="time"]')?.value === "15:00");
   await page.getByLabel("Current wait (min)").fill("15");
   await page.getByLabel("Revised wait (min)").fill("5");
-  await page.getByText("10 min less outside", { exact: true }).waitFor();
+  await page.getByRole("status").filter({ hasText: "10 min less outside" }).waitFor();
   await page.getByRole("button", { name: "Save plan", exact: true }).press("Enter");
   await page.getByText("Plan updated.").waitFor();
   await accessibility(page, "My Plan");
 
   await plannerLink(page, "Preferences").press("Enter");
+  await page.waitForFunction(() => document.activeElement === document.querySelector("#preferences summary"));
   if (!availability.available) await page.getByText(/AI suggestions are unavailable/).waitFor();
+  await page.getByRole("combobox", { name: "Air purifier available" }).selectOption("true");
+  await page.getByRole("heading", { name: "Use the purifier in the room you spend time in" }).waitFor();
   await page.getByRole("combobox", { name: "Metro available" }).selectOption("true");
   await page.getByText("Compare Metro with your road trip", { exact: true }).waitFor();
   await page.getByRole("combobox", { name: "Activity can move indoors" }).selectOption("true");
   await page.getByText("Move a flexible activity indoors", { exact: true }).waitFor();
   assert.equal(await page.getByLabel("Fixed time").inputValue(), "15:00");
+  await accessibility(page, "Open preferences");
 
   await plannerLink(page, "Travel").click();
   await page.getByRole("group", { name: "Current route" }).getByRole("combobox", { name: "Main mode" }).selectOption("road");
@@ -93,6 +98,7 @@ try {
   await page.getByRole("button", { name: "Save and compare" }).click();
   await page.getByText(/select the average road baseline/).waitFor();
   assert.equal(await page.getByText("0.29–0.39 kg", { exact: true }).count(), 0);
+  await accessibility(page, "Open route comparison");
 
   await plannerLink(page, "Group note").click();
   await page.getByRole("combobox", { name: "Note language" }).selectOption("hi");
@@ -101,6 +107,7 @@ try {
   const shared = await page.evaluate(() => navigator.clipboard.readText());
   assert.match(shared, /ऐतिहासिक रिकॉर्ड/);
   assert.doesNotMatch(shared, /School pickup|15:00/);
+  await accessibility(page, "Open group note");
   await page.getByText("Available offline", { exact: true }).waitFor();
   await context.setOffline(true);
   await page.reload();
@@ -148,8 +155,33 @@ try {
   assert.equal(await unsupported.locator("canvas").count(), 0);
   await unsupported.close();
 
+  const tabs = await browser.newContext({ viewport: { width: 320, height: 750 } });
+  const journal = await tabs.newPage();
+  const schedule = await tabs.newPage();
+  observe(journal);
+  observe(schedule);
+  await Promise.all([journal.goto(origin), schedule.goto(`${origin}/plan`)]);
+  await schedule.waitForFunction(() => !document.querySelector('input[name="commitment"]')?.disabled);
+  await journal.getByRole("button", { name: "Try historical replay" }).click();
+  await journal.getByRole("link", { name: "Open My Plan" }).click();
+  await journal.getByText("Delhi · 382 AQI", { exact: true }).waitFor();
+
+  await schedule.getByRole("textbox", { name: "Commitment", exact: true }).fill("Pickup");
+  await schedule.getByLabel("Fixed time").fill("15:00");
+  await schedule.getByRole("button", { name: "Save plan", exact: true }).click();
+  await schedule.getByText("Plan updated.").waitFor();
+  await schedule.getByRole("link", { name: "Today", exact: true }).click();
+  await schedule.waitForURL(`${origin}/`);
+  await schedule.reload();
+  await schedule.getByText(/Example from the archive/).waitFor();
+  await schedule.getByRole("link", { name: "Open My Plan" }).click();
+  await schedule.getByText("Delhi · 382 AQI", { exact: true }).waitFor();
+  assert.equal(await schedule.getByRole("textbox", { name: "Commitment", exact: true }).inputValue(), "Pickup");
+  assert(await schedule.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await tabs.close();
+
   assert.deepEqual(errors, []);
-  console.log("Browser checks passed for safe input, keyboard access, axe, local action updates, Metro estimates, Hindi clipboard, offline editing, 3D and its fallbacks.");
+  console.log("Browser checks passed for safe input, keyboard focus, opened-panel axe checks, local action updates, Metro estimates, Hindi clipboard, offline editing, shared-tab data and 3D fallbacks.");
 } finally {
   await browser.close();
 }

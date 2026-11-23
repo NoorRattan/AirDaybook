@@ -47,8 +47,12 @@ The AI proposes changes to four editable preferences and waits for confirmation 
 
 ```sh
 npm run typecheck
+npm test
 npm run build
+npm run test:api
 ```
+
+The domain tests cover reading provenance and freshness, fixed commitments, wait and travel calculations, privacy in group notes, and the model response contract. Use `npm run test:coverage` to see coverage for the exercised domain modules. The API suite starts the production standalone server, uses a temporary SQLite quota database, and substitutes a local provider fixture. It covers validation, provider failures, timeouts, quotas, and redacted logs without sending requests to Groq.
 
 Build and start the same standalone Linux image used by GitHub Actions.
 
@@ -59,7 +63,7 @@ docker run --rm -p 127.0.0.1:3000:3000 -e AI_ENABLED=false airdaybook
 
 `GET /api/health` reports core app readiness. If you enable AI with SQLite in Docker, mount a writable volume at `/var/data` and set `AI_QUOTA_DB_PATH` to a file there.
 
-With the production server running, use `node scripts/smoke-release.mjs http://127.0.0.1:3000` to verify both routes and the offline assets. Install Chromium with `npx playwright-core install chromium`, then run `npm run test:browser`. The browser suite checks keyboard interaction, axe WCAG checks, offline editing, unsafe reading URLs, the Metro estimate, bilingual notes, and WebGL fallbacks. Set `AIRDAYBOOK_TEST_ORIGIN` if the server uses a different origin. GitHub Actions runs the smoke and browser tests against the Linux image.
+With the production server running, use `node scripts/smoke-release.mjs http://127.0.0.1:3000` to verify both routes and the offline assets. Install Chromium with `npx playwright-core install chromium`, then run `npm run test:browser`. The browser suite checks keyboard focus, axe WCAG checks for opened tools, edits from two tabs, offline editing, unsafe reading URLs, the Metro estimate, bilingual notes, and WebGL fallbacks. Set `AIRDAYBOOK_TEST_ORIGIN` if the server uses a different origin. GitHub Actions verifies the domain and API contracts on Node 24 and runs the smoke and browser tests against the Linux image.
 
 ## Deploy the free preview on Vercel
 

@@ -3,6 +3,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { FileUp, MapPin, PencilLine } from "lucide-react";
 import { MAX_IMPORT_BYTES, type ReadingSelection } from "@/lib/readings";
+import { DELHI_REPLAY, replayDate } from "@/lib/replay";
 import { useDraft } from "./draft-provider";
 import { ReadingDialog } from "./reading-dialog";
 import { ReadingCard, ReplayDetails } from "./reading-card";
@@ -10,6 +11,8 @@ import { AtmospherePlate } from "./atmosphere-plate";
 import { AppLink } from "./app-link";
 
 export function TodayWorkspace() {
+  const { invocation } = DELHI_REPLAY;
+  const archiveMonth = replayDate(invocation.date, "en-IN", "short").replace(/^\d+ /, "");
   const { draft, updateDraft, ready, persistent } = useDraft();
   const dialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -88,15 +91,15 @@ export function TodayWorkspace() {
       <section className="archive" aria-labelledby="replay-title">
         <div className="archive-index">
           <p className="eyebrow">Historical replay</p>
-          <time dateTime="2026-11-06">06 <span>Nov 2026</span></time>
+          <time dateTime={invocation.date}>{invocation.date.slice(-2)} <span>{archiveMonth}</span></time>
         </div>
         <div className="archive-body">
           <h2 id="replay-title">When Delhi entered Stage III</h2>
-          <p>See the 6 November 2026 reading and the orders that followed.</p>
+          <p>See the {replayDate(invocation.date)} reading and the orders that followed.</p>
           <ReplayDetails />
         </div>
-        <div className="archive-value" aria-label="Delhi city AQI 382 on 6 November 2026, historical">
-          <strong>382</strong><span>City AQI · Very Poor</span>
+        <div className="archive-value" aria-label={DELHI_REPLAY.place + " city AQI " + invocation.aqi + " on " + replayDate(invocation.date) + ", historical"}>
+          <strong>{invocation.aqi}</strong><span>City AQI · Very Poor</span>
         </div>
       </section>
 

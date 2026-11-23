@@ -42,10 +42,11 @@ export function DraftProvider({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     if (!ready || !persistent || draft === scheduled.current) return;
+    const previous = scheduled.current;
     scheduled.current = draft;
-    let active = true;
-    pendingWrite.current = writeDraft(draft).catch(() => { if (active) setPersistent(false); });
-    return () => { active = false; };
+    pendingWrite.current = pendingWrite.current
+      .then(() => writeDraft(previous, draft))
+      .catch(() => { setPersistent(false); });
   }, [draft, ready, persistent]);
 
   return (

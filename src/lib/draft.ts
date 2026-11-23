@@ -1,4 +1,5 @@
 import type { Draft } from "./draft-schema";
+import { mergeDraftFields } from "./draft-merge";
 import { emptyPreferences } from "./preferences";
 export type { Draft, Plan } from "./draft-schema";
 
@@ -48,22 +49,29 @@ export async function readDraft() {
   return { ...result.data, travel: routes.success ? routes.data : null };
 }
 
-export async function writeDraft(draft: Draft) {
+export async function writeDraft(previous: Draft, next: Draft) {
   const database = await openStore();
+  const { draftSchema } = await import("./draft-schema");
   return new Promise<void>((resolve, reject) => {
     const transaction = database.transaction("workspace", "readwrite");
     transaction.oncomplete = () => resolve();
     transaction.onabort = () => reject(transaction.error ?? new Error("Draft write interrupted."));
     const store = transaction.objectStore("workspace");
-    if (draft === emptyDraft) {
+    if (next === emptyDraft) {
       store.delete("draft");
       store.delete("travel");
     } else {
-      const { travel, ...base } = draft;
-      // Older offline shells still validate the base record with a strict schema.
-      store.put(base, "draft");
-      if (travel) store.put(travel, "travel");
-      else store.delete("travel");
+      const request = store.get("draft");
+      request.onsuccess = () => {
+        const parsed = draftSchema.safeParse(request.result);
+        const saved = parsed.success ? { ...parsed.data, travel: null } : emptyDraft;
+        const { travel, ...base } = mergeDraftFields(saved, previous, next);
+        // Older offline shells still validate the base record with a strict schema.
+        store.put(base, "draft");
+        if (previous.travel === next.travel) return;
+        if (travel) store.put(travel, "travel");
+        else store.delete("travel");
+      };
     }
   });
 }
