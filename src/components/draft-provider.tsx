@@ -30,21 +30,15 @@ export function DraftProvider({ children }: { children: ReactNode }) {
         }
       },
       () => { if (active) setPersistent(false); },
-    ).finally(() => {
-      if (active) {
-        setNow(Date.now());
-        setReady(true);
-      }
-    });
+    ).finally(() => { if (active) setReady(true); });
     return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    if (!draft.selection || draft.selection === "replay") return;
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
-  }, [draft.selection]);
+  }, []);
 
   useLayoutEffect(() => {
     if (!ready || !persistent || draft === scheduled.current) return;
