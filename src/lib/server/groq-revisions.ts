@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { interpretationToRevision, providerJsonSchema, type RevisionRequest, type RevisionResponse } from "../revision-schema";
 import type { AIConfiguration } from "./ai-config";
+import { readBoundedJson } from "./bounded-json";
 
 const endpoint = "https://api.groq.com/openai/v1/chat/completions";
 const completion = z.object({
@@ -24,13 +25,15 @@ const instructions = [
 
 type Interpretation =
   | { kind: "success"; result: RevisionResponse }
-  | { kind: "invalid" | "timeout" | "unavailable" };
+  | { kind: "provider_http_error"; status: number }
+  | { kind: "invalid" | "timeout" | "provider_network_error" | "client_aborted" };
 
 export async function interpretRevision(
   config: AIConfiguration, request: RevisionRequest, clientSignal: AbortSignal,
 ): Promise<Interpretation> {
   const deadline = AbortSignal.timeout(config.timeout);
   const signal = AbortSignal.any([clientSignal, deadline]);
+  const interrupted = (): Interpretation => ({ kind: deadline.aborted ? "timeout" : "client_aborted" });
   let response: Response;
   try {
     response = await fetch(endpoint, {
@@ -53,20 +56,23 @@ export async function interpretRevision(
       redirect: "error",
     });
   } catch {
-    return { kind: deadline.aborted ? "timeout" : "unavailable" };
+    return signal.aborted ? interrupted() : { kind: "provider_network_error" };
   }
 
   if (!response.ok) {
     void response.body?.cancel().catch(() => {});
-    return { kind: "unavailable" };
+    return { kind: "provider_http_error", status: response.status };
   }
+  const body = await readBoundedJson(response, 32 * 1024, signal);
+  if (body.kind === "aborted") return interrupted();
+  if (body.kind !== "success") return { kind: "invalid" };
   try {
-    const result = completion.safeParse(await response.json());
+    const result = completion.safeParse(body.value);
     const revision = result.success
       ? interpretationToRevision(JSON.parse(result.data.choices[0].message.content), request)
       : null;
     return revision ? { kind: "success", result: revision } : { kind: "invalid" };
   } catch {
-    return { kind: deadline.aborted ? "timeout" : "invalid" };
+    return { kind: "invalid" };
   }
 }

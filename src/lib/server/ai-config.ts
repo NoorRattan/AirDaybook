@@ -23,7 +23,9 @@ function canonicalOrigin() {
 }
 
 export function aiConfiguration() {
-  if (process.env.AI_ENABLED !== "true") return null;
+  const enabled = process.env.AI_ENABLED;
+  if (enabled === undefined || enabled === "false") return { kind: "disabled" } as const;
+  if (enabled !== "true") return { kind: "invalid" } as const;
   const origin = canonicalOrigin();
   const key = process.env.GROQ_API_KEY?.trim();
   const quotaPath = process.env.AI_QUOTA_DB_PATH?.trim();
@@ -34,9 +36,9 @@ export function aiConfiguration() {
   const timeout = boundedSetting("AI_PROVIDER_TIMEOUT_MS", 1000, 25000, 8000);
 
   if (!origin || !key || !quotaPath || !isAbsolute(quotaPath) ||
-    !dailyLimit || !maxConcurrent || !perMinute || !timeout) return null;
+    !dailyLimit || !maxConcurrent || !perMinute || !timeout) return { kind: "invalid" } as const;
 
-  return { origin, key, quotaPath, model, dailyLimit, maxConcurrent, perMinute, timeout };
+  return { kind: "ready", config: { origin, key, quotaPath, model, dailyLimit, maxConcurrent, perMinute, timeout } } as const;
 }
 
-export type AIConfiguration = NonNullable<ReturnType<typeof aiConfiguration>>;
+export type AIConfiguration = Extract<ReturnType<typeof aiConfiguration>, { kind: "ready" }>["config"];

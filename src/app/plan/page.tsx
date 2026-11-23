@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PlanWorkspace } from "@/components/plan-workspace";
+import "./plan.css";
 
 export const metadata: Metadata = { title: "My Plan" };
 

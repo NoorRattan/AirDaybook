@@ -29,14 +29,14 @@ function openStore(path: string) {
 
 type Admission =
   | { result: "reserved"; release: () => void }
-  | { result: "limited"; retryAfter?: number }
+  | { result: "limited"; retryAfter: number; category: "concurrency_limit" | "burst_limit" | "daily_limit" }
   | { result: "store_unavailable" };
 
 export function reserveRevision(config: AIConfiguration, now = Date.now()): Admission {
   while (recentAdmissions.length > 0 && recentAdmissions[0] <= now - windowMs) recentAdmissions.shift();
-  if (inFlight >= config.maxConcurrent) return { result: "limited", retryAfter: 1 };
+  if (inFlight >= config.maxConcurrent) return { result: "limited", retryAfter: 1, category: "concurrency_limit" };
   if (recentAdmissions.length >= config.perMinute) {
-    return { result: "limited", retryAfter: Math.max(1, Math.ceil((recentAdmissions[0] + windowMs - now) / 1000)) };
+    return { result: "limited", category: "burst_limit", retryAfter: Math.max(1, Math.ceil((recentAdmissions[0] + windowMs - now) / 1000)) };
   }
 
   try {
@@ -53,7 +53,7 @@ export function reserveRevision(config: AIConfiguration, now = Date.now()): Admi
     ).get(day, config.dailyLimit);
     if (!slot) {
       const nextMidnight = Date.parse(`${day}T00:00:00+05:30`) + dayMs;
-      return { result: "limited", retryAfter: Math.max(1, Math.ceil((nextMidnight - now) / 1000)) };
+      return { result: "limited", category: "daily_limit", retryAfter: Math.max(1, Math.ceil((nextMidnight - now) / 1000)) };
     }
   } catch {
     return { result: "store_unavailable" };

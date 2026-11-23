@@ -1,0 +1,31 @@
+name: Release image check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and smoke-test the Linux image
+        shell: bash
+        run: |
+          docker build --platform linux/amd64 --tag airdaybook:check \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" .
+          container=$(docker run --detach --publish 127.0.0.1:3000:3000 \
+            --env AI_ENABLED=false --env "RELEASE_ID=$GITHUB_SHA" airdaybook:check)
+          trap 'docker rm -f "$container" >/dev/null' EXIT
+          if ! node scripts/smoke-release.mjs http://127.0.0.1:3000; then
+            docker logs "$container"
+            exit 1
+          fi
