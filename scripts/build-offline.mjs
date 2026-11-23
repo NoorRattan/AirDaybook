@@ -1,12 +1,14 @@
 import { createHash } from "node:crypto";
-import { readFile, readdir, writeFile } from "node:fs/promises";
+import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { join, sep } from "node:path";
 
 const next = ".next";
+const vercel = join(next, "output");
+const hasVercelOutput = await stat(join(vercel, "config.json")).then(() => true, () => false);
 const publicFiles = ["delhi-metro-dawn.webp", "delhi-metro-dawn-small.webp"];
 const routes = {
-  "/": join(next, "server", "app", "index.html"),
-  "/plan": join(next, "server", "app", "plan.html"),
+  "/": "index",
+  "/plan": "plan",
 };
 
 function urlPath(file) {
@@ -15,6 +17,20 @@ function urlPath(file) {
 
 async function integrity(file) {
   return "sha256-" + createHash("sha256").update(await readFile(file)).digest("base64");
+}
+
+async function prerenderedFile(path, name) {
+  const candidates = hasVercelOutput ? [
+    join(vercel, "functions", `${name}.prerender-fallback.html`),
+    join(vercel, "static", `${path}.html`),
+    join(vercel, "static", `${name}.html`),
+  ] : [];
+  candidates.push(join(next, "server", "app", `${name}.html`));
+  for (const file of candidates) {
+    const info = await stat(file).catch(() => null);
+    if (info?.isFile()) return file;
+  }
+  throw new Error(`Missing prerender for ${path}. Checked ${candidates.join(", ")}.`);
 }
 
 const staticRoot = join(next, "static");
@@ -28,7 +44,7 @@ if (!staticFiles.some((file) => file.endsWith(".js")) || !staticFiles.some((file
 }
 
 const files = [
-  ...Object.entries(routes),
+  ...await Promise.all(Object.entries(routes).map(async ([path, name]) => [path, await prerenderedFile(path, name)])),
   ...staticFiles.map((file) => ["/_next/static/" + urlPath(file), join(staticRoot, file)]),
   ...publicFiles.map((file) => ["/" + file, join("public", file)]),
 ];
@@ -37,5 +53,8 @@ const worker = await readFile(new URL("offline-worker.js", import.meta.url), "ut
 const nextBuildId = (await readFile(join(next, "BUILD_ID"), "utf8")).trim();
 const version = createHash("sha256").update(JSON.stringify([nextBuildId, entries, worker])).digest("hex").slice(0, 20);
 const manifest = { version, routes: Object.keys(routes), entries };
-await writeFile("public/sw.js", `const airdaybookBuild = ${JSON.stringify(manifest)};\n${worker}`, "utf8");
+const source = `const airdaybookBuild = ${JSON.stringify(manifest)};\n${worker}`;
+await writeFile("public/sw.js", source, "utf8");
+// Vercel's Next.js adapter has already copied public files when this step runs.
+if (hasVercelOutput) await writeFile(join(vercel, "static", "sw.js"), source, "utf8");
 console.log(`Prepared AirDaybook offline shell ${version} with ${entries.length} files.`);

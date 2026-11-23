@@ -7,6 +7,7 @@ import { releaseId } from "@/lib/server/operations";
 import { reserveRevision } from "@/lib/server/quota";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const bodyLimit = 8 * 1024;
 const errors = {
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
   const input = revisionRequestSchema.safeParse(body.value);
   if (!input.success || request.signal.aborted) return fail("invalid_request");
 
-  const admission = reserveRevision(config);
+  const admission = await reserveRevision(config, request.signal);
   if (admission.result === "limited") return fail("usage_limited", { retryAfter: admission.retryAfter, category: admission.category });
   if (admission.result === "store_unavailable") return fail("ai_unavailable", { category: "quota_store_unavailable" });
 
@@ -72,6 +73,6 @@ export async function POST(request: Request) {
     }
     return fail("ai_unavailable", { category: interpretation.kind });
   } finally {
-    admission.release();
+    await admission.release();
   }
 }

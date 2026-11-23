@@ -30,9 +30,10 @@ The manual planner works with AI disabled. To enable Groq, configure these varia
 | `AI_MAX_CONCURRENT` | Positive cap on simultaneous requests |
 | `AI_BURST_PER_MINUTE` | Positive cap on requests per minute |
 | `AI_QUOTA_DB_PATH` | Absolute path to a SQLite database in an existing writable directory |
+| `AI_QUOTA_DATABASE_URL` | Shared Postgres quota database on Vercel. Also reads the integration's `DATABASE_URL` or `POSTGRES_URL`. |
 | `AI_PROVIDER_TIMEOUT_MS` | Optional deadline in milliseconds, defaults to 8000 |
 
-The AI proposes changes to four editable preferences. Apply a proposal explicitly to update them. Fixed commitments and readings stay in the planner. Run one app instance per quota disk.
+The AI proposes changes to four editable preferences. Apply a proposal explicitly to update them. Fixed commitments and readings stay in the planner. Run one app instance per SQLite quota disk. Postgres coordinates the daily, burst and concurrent limits across instances.
 
 ## Verify
 
@@ -42,6 +43,12 @@ npm run build
 ```
 
 The included Dockerfile builds a standalone Linux image. Mount a writable volume at `/var/data` for the quota database and set the runtime variables when starting the container. `GET /api/health` reports core app readiness.
+
+## Deploy the free preview on Vercel
+
+Import the GitHub repo into a Hobby workspace with Next.js as the preset. Use Node.js 24 and `npm run build` so the deployment includes the generated offline worker. Connect a Neon Free database to the production environment. Keep `GROQ_API_KEY` server-side in Vercel as a sensitive production variable. Set `AI_ENABLED=true` together with the three AI limits when the database and Groq key are ready. Preview deployments can keep AI disabled. The production domain can be inferred from Vercel's system environment variables, or set explicitly with `APP_ORIGIN`.
+
+The Postgres adapter creates two quota tables on first use. They contain daily counts and short-lived request leases. The database connection fails closed, and quota failures leave the manual planner available. Verify the HTTPS release with `node scripts/smoke-release.mjs` followed by the deployment origin.
 
 ## Stage a release image
 

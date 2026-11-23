@@ -27,12 +27,25 @@ function openStore(path: string) {
   return store;
 }
 
-type Admission =
-  | { result: "reserved"; release: () => void }
+export type Admission =
+  | { result: "reserved"; release: () => void | Promise<void> }
   | { result: "limited"; retryAfter: number; category: "concurrency_limit" | "burst_limit" | "daily_limit" }
   | { result: "store_unavailable" };
 
-export function reserveRevision(config: AIConfiguration, now = Date.now()): Admission {
+export async function reserveRevision(config: AIConfiguration, signal: AbortSignal): Promise<Admission> {
+  if (config.storage.kind === "postgres") {
+    try {
+      const { reservePostgres } = await import("./quota-postgres");
+      return await reservePostgres(config, config.storage, signal);
+    } catch {
+      return { result: "store_unavailable" };
+    }
+  }
+  if (signal.aborted) return { result: "store_unavailable" };
+  return reserveSqlite(config, config.storage.path, Date.now());
+}
+
+function reserveSqlite(config: AIConfiguration, path: string, now: number): Admission {
   while (recentAdmissions.length > 0 && recentAdmissions[0] <= now - windowMs) recentAdmissions.shift();
   if (inFlight >= config.maxConcurrent) return { result: "limited", retryAfter: 1, category: "concurrency_limit" };
   if (recentAdmissions.length >= config.perMinute) {
@@ -41,7 +54,7 @@ export function reserveRevision(config: AIConfiguration, now = Date.now()): Admi
 
   try {
     const day = dateInIndia.format(now);
-    const active = openStore(config.quotaPath);
+    const active = openStore(path);
     if (active.cleanedDay !== day) {
       const cutoff = dateInIndia.format(now - 6 * dayMs);
       active.database.prepare("DELETE FROM daily_usage WHERE day < ?").run(cutoff);
