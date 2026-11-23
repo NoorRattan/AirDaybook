@@ -1,7 +1,11 @@
 import type { Draft } from "./draft-schema";
+import { emptyPreferences } from "./preferences";
 export type { Draft, Plan } from "./draft-schema";
 
-export const emptyDraft: Draft = { version: 1, selection: null, plan: null };
+export const emptyDraft: Draft = {
+  version: 1, selection: null, plan: null,
+  preferences: emptyPreferences, previousPreferences: null,
+};
 
 let opening: Promise<IDBDatabase> | undefined;
 function openStore() {
@@ -44,7 +48,7 @@ export async function writeDraft(draft: Draft) {
     transaction.oncomplete = () => resolve();
     transaction.onabort = () => reject(transaction.error ?? new Error("Draft write interrupted."));
     const store = transaction.objectStore("workspace");
-    if (draft.selection === null && draft.plan === null) store.delete("draft");
+    if (draft === emptyDraft) store.delete("draft");
     else store.put(draft, "draft");
   });
 }

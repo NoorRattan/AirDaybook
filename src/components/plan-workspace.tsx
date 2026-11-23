@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { emptyDraft, type Plan } from "@/lib/draft";
 import { readingView } from "@/lib/readings";
 import { useDraft } from "./draft-provider";
+import { PlanPreferences } from "./plan-preferences";
 
 const replayPlan: Plan = {
   commitment: "School pickup", time: "15:00", previousWait: null, revisedWait: null,
@@ -169,16 +170,17 @@ export function PlanWorkspace() {
         updateDraft((current) => ({ ...current, plan: next }));
         setNotice("Plan updated.");
       }} />
+      <PlanPreferences key={editor} />
       <div className="plan-footer">
         <div>
           <p>{persistent ? "Your reading and plan stay on this device." : "Draft storage is unavailable. Your changes last until you close or reload this page."}</p>
           <p role="status" className="form-notice">{notice}</p>
         </div>
-        <button className="button button-subtle" disabled={!ready || (!draft.selection && !plan)} onClick={() => clearDialog.current?.showModal()}><Trash2 size={16} aria-hidden /> Clear saved data</button>
+        <button className="button button-subtle" disabled={!ready || (!draft.selection && !plan && !draft.previousPreferences)} onClick={() => clearDialog.current?.showModal()}><Trash2 size={16} aria-hidden /> Clear saved data</button>
       </div>
       <dialog className="entry-dialog clear-dialog" ref={clearDialog} aria-labelledby="clear-title">
         <div className="dialog-top">
-          <div><h2 id="clear-title">Clear saved data?</h2><p>This removes the selected reading and saved plan from this device.</p></div>
+          <div><h2 id="clear-title">Clear saved data?</h2><p>This removes the selected reading, plan and preferences from this device.</p></div>
           <button type="button" aria-label="Close" className="icon-button" onClick={() => clearDialog.current?.close()}><X size={22} aria-hidden /></button>
         </div>
         <div className="form-actions">

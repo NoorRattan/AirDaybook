@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { selectionSchema } from "./observation-schema";
+import { emptyPreferences } from "./preferences";
+import { preferencesSchema } from "./revision-schema";
 
 const wait = z.number().int().min(0).max(1440).nullable();
 export const planSchema = z.strictObject({
@@ -13,6 +15,8 @@ export const draftSchema = z.strictObject({
   version: z.literal(1),
   selection: selectionSchema,
   plan: planSchema.nullable(),
+  preferences: preferencesSchema.default(emptyPreferences),
+  previousPreferences: preferencesSchema.nullable().default(null),
 });
 
 export type Plan = z.infer<typeof planSchema>;
