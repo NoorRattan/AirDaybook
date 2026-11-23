@@ -11,6 +11,16 @@ export const SOURCES = {
 export const MAX_IMPORT_BYTES = 64 * 1024;
 const SIX_HOURS = 6 * 60 * 60 * 1000;
 
+export function isStaleObservation(observedAt: string, now: number) {
+  return now - Date.parse(observedAt) > SIX_HOURS;
+}
+
+export function observationTime(observedAt: string, locale: "en-IN" | "hi-IN" = "en-IN") {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata",
+  }).format(new Date(observedAt)) + " IST";
+}
+
 const bands = [
   [50, "Good"], [100, "Satisfactory"], [200, "Moderate"],
   [300, "Poor"], [400, "Very Poor"], [500, "Severe"],
@@ -28,7 +38,7 @@ export function readingView(selection: ReadingSelection, now: number) {
   }
   const { location, source, observedAt, metric } = selection.observation;
   const eligibleScale = metric.kind === "aqi" && metric.scale === "india_naqi" && metric.basis === "overall";
-  const stale = now - Date.parse(observedAt) > SIX_HOURS;
+  const stale = isStaleObservation(observedAt, now);
   const scaleName = metric.kind === "aqi" && metric.scale === "india_naqi" ? "Indian AQI"
     : metric.kind === "aqi" && metric.scale === "us_aqi" ? "US AQI" : "AQI";
   const band = eligibleScale ? bands.find(([ceiling]) => metric.value <= ceiling)?.[1] : null;
@@ -38,9 +48,7 @@ export function readingView(selection: ReadingSelection, now: number) {
     title: band ?? (metric.kind === "pm25" ? "PM₂.₅ concentration" : metric.basis === "pollutant_subindex" ? "Pollutant sub-index" : "Reported AQI"),
     state: stale ? "Stale reading" : eligibleScale ? "User-supplied reading" : "Display only",
     place: location.label, scope: location.scope === "city" ? "City reading" : "Station reading",
-    time: new Intl.DateTimeFormat("en-IN", {
-      dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata",
-    }).format(new Date(observedAt)) + " IST",
+    time: observationTime(observedAt),
     source: source.label, url: source.url,
     origin: selection.kind === "manual" ? "Manual entry" : "User-imported JSON",
     averaging: metric.averagingMinutes === null ? "Averaging window unavailable" : `${metric.averagingMinutes} min averaging window`,

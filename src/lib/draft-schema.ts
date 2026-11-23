@@ -2,6 +2,7 @@ import { z } from "zod";
 import { selectionSchema } from "./observation-schema";
 import { emptyPreferences } from "./preferences";
 import { preferencesSchema } from "./revision-schema";
+import type { TravelComparison } from "./travel";
 
 const wait = z.number().int().min(0).max(1440).nullable();
 export const planSchema = z.strictObject({
@@ -20,4 +21,4 @@ export const draftSchema = z.strictObject({
 });
 
 export type Plan = z.infer<typeof planSchema>;
-export type Draft = z.infer<typeof draftSchema>;
+export type Draft = z.infer<typeof draftSchema> & { travel: TravelComparison | null };

@@ -13,6 +13,8 @@ npm run dev
 
 Open [localhost:3000](http://localhost:3000). Use **Today** to choose a reading and **My Plan** to compare waiting estimates. Your reading and plan are stored in the browser. The optional 3D illustration is independent of AQI.
 
+In **My Plan**, enter door-to-door times for two routes. The Delhi Metro CO₂ estimate uses your one-way rail distance and an average motorized road-trip baseline, with both methods cited in the result. Use **Community share** to preview and copy a dated reading and group action in English or Hindi. The note starts with the selected reading. Add any group details you want to share.
+
 ## AI preference suggestions
 
 The manual planner works with AI disabled. To enable Groq, configure these variables in the server process. Store the credential in your local environment or hosting secret store.
@@ -42,6 +44,6 @@ The included Dockerfile builds a standalone Linux image. Mount a writable volume
 
 ## Offline planner
 
-Run `npm run build` followed by `npm start` to test the offline planner. Open either page in a browser on localhost or an HTTPS origin. Wait for **Available offline** in the footer. Both pages, the Delhi replay, reading imports and manual edits work offline. Drafts stay in IndexedDB. AI suggestions require a connection.
+Run `npm run build` followed by `npm start` to test the offline planner. Open either page in a browser on localhost or an HTTPS origin. Wait for **Available offline** in the footer. Both pages, the Delhi replay, reading imports, manual edits, route comparisons and community notes work offline. Drafts stay in IndexedDB. AI suggestions require a connection.
 
 The production build emits the versioned service worker. An installed update offers **Load saved update** once its complete shell has been downloaded and checked. The existing shell remains available while the next version installs.
