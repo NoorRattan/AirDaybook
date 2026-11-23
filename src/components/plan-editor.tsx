@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarClock, Footprints } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { compareWaiting, MAX_COMMITMENT_LENGTH, MAX_WAIT_MINUTES, parsePlan, parseWait, type Plan } from "@/lib/plan";
 
 function WaitComparison({ before, after }: { before: number | null; after: number | null }) {
@@ -40,17 +40,29 @@ function WaitComparison({ before, after }: { before: number | null; after: numbe
 
 export function PlanEditor({ initial, ready, onSave }: { initial: Plan | null; ready: boolean; onSave: (plan: Plan) => void }) {
   const [error, setError] = useState("");
+  const [commitment, setCommitment] = useState(initial?.commitment ?? "");
+  const [time, setTime] = useState(initial?.time ?? "");
   const [before, setBefore] = useState(String(initial?.previousWait ?? ""));
   const [after, setAfter] = useState(String(initial?.revisedWait ?? ""));
+  const opened = useRef(ready);
+
+  useLayoutEffect(() => {
+    if (!ready || opened.current) return;
+    opened.current = true;
+    if (!initial) return;
+    setCommitment(initial.commitment);
+    setTime(initial.time);
+    setBefore(String(initial.previousWait ?? ""));
+    setAfter(String(initial.revisedWait ?? ""));
+  }, [ready, initial]);
 
   function savePlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!ready) return;
     const form = event.currentTarget;
-    const fields = new FormData(form);
     const result = parsePlan({
-      commitment: String(fields.get("commitment") ?? ""),
-      time: String(fields.get("time") ?? ""),
+      commitment,
+      time,
       previousWait: before,
       revisedWait: after,
     });
@@ -72,8 +84,8 @@ export function PlanEditor({ initial, ready, onSave }: { initial: Plan | null; r
         </div>
         <form className="plan-form" onSubmit={savePlan} aria-describedby={error ? "plan-error" : undefined}>
           <div className="commitment-inputs">
-            <label>Commitment<input name="commitment" required maxLength={MAX_COMMITMENT_LENGTH} defaultValue={initial?.commitment ?? ""} disabled={!ready} placeholder="e.g. School pickup" /></label>
-            <label>Fixed time<input name="time" type="time" required defaultValue={initial?.time ?? ""} disabled={!ready} /></label>
+            <label>Commitment<input name="commitment" required maxLength={MAX_COMMITMENT_LENGTH} value={commitment} onChange={(event) => setCommitment(event.target.value)} disabled={!ready} placeholder="e.g. School pickup" /></label>
+            <label>Fixed time<input name="time" type="time" required value={time} onChange={(event) => setTime(event.target.value)} disabled={!ready} /></label>
           </div>
           <fieldset>
             <legend>Outdoor waiting estimates</legend>

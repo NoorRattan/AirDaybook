@@ -70,7 +70,7 @@ export function PlanWorkspace() {
         </div>
       </section>
 
-      <PlanEditor key={`plan-${editor}-${ready}`} initial={initial} ready={ready} onSave={(next) => {
+      <PlanEditor key={`plan-${editor}`} initial={initial} ready={ready} onSave={(next) => {
         updateDraft((current) => ({ ...current, plan: next }));
         setNotice("Plan updated.");
       }} />
