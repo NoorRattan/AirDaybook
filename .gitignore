@@ -5,3 +5,4 @@
 /.env*
 /.runtime/
 /.feasibility/
+/public/sw.js

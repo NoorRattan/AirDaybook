@@ -1,11 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { emptyDraft, readDraft, writeDraft, type Draft } from "@/lib/draft";
 
 const DraftContext = createContext<{
   draft: Draft;
   updateDraft: (update: (current: Draft) => Draft) => void;
+  finishDraftWrite: () => Promise<void>;
   ready: boolean;
   persistent: boolean;
   now: number;
@@ -17,6 +18,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
   const [persistent, setPersistent] = useState(true);
   const [now, setNow] = useState(0);
   const scheduled = useRef<Draft>(emptyDraft);
+  const pendingWrite = useRef(Promise.resolve());
 
   useEffect(() => {
     let active = true;
@@ -38,16 +40,16 @@ export function DraftProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!ready || !persistent || draft === scheduled.current) return;
     scheduled.current = draft;
     let active = true;
-    writeDraft(draft).catch(() => { if (active) setPersistent(false); });
+    pendingWrite.current = writeDraft(draft).catch(() => { if (active) setPersistent(false); });
     return () => { active = false; };
   }, [draft, ready, persistent]);
 
   return (
-    <DraftContext.Provider value={{ draft, updateDraft: setDraft, ready, persistent, now }}>
+    <DraftContext.Provider value={{ draft, updateDraft: setDraft, finishDraftWrite: () => pendingWrite.current, ready, persistent, now }}>
       {children}
     </DraftContext.Provider>
   );

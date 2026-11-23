@@ -5,7 +5,7 @@ import { useEffect } from "react";
 export function JournalScroll() {
   useEffect(() => {
     const media = window.matchMedia("(min-width: 850px) and (pointer: fine) and (prefers-reduced-motion: no-preference)");
-    if (!media.matches) return;
+    if (!media.matches || !navigator.onLine) return;
 
     let disposed = false;
     let removeMotion: (() => void) | undefined;

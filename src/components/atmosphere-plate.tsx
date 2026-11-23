@@ -50,6 +50,10 @@ export function AtmospherePlate() {
   }, []);
 
   async function openScene() {
+    if (!navigator.onLine) {
+      setMessage("The still illustration is available offline.");
+      return;
+    }
     const connection = (navigator as Navigator & { connection?: { saveData: boolean } }).connection;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || connection?.saveData) {
       setMessage("Showing the still illustration to respect your motion or data settings.");

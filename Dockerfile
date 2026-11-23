@@ -5,6 +5,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY src ./src
+COPY scripts ./scripts
 COPY public ./public
 COPY next.config.ts postcss.config.mjs tsconfig.json ./
 RUN npm run build

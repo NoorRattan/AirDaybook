@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, useState, type ChangeEvent } from "react";
 import { ArrowRight, ArrowUpRight, FileUp, MapPin, PencilLine } from "lucide-react";
 import { MAX_IMPORT_BYTES, type ReadingSelection } from "@/lib/readings";
@@ -9,6 +8,7 @@ import { ReadingDialog } from "./reading-dialog";
 import { ReadingCard, ReplayDetails } from "./reading-card";
 import { AtmospherePlate } from "./atmosphere-plate";
 import { JournalScroll } from "./journal-scroll";
+import { AppLink } from "./app-link";
 
 export function TodayWorkspace() {
   const { updateDraft, ready, persistent } = useDraft();
@@ -80,7 +80,7 @@ export function TodayWorkspace() {
             <div role="status">{notice && <p className="form-notice">{notice}</p>}</div>
             {error && <p role="alert" className="form-error">{error} The selected reading is unchanged.</p>}
             {ready && !persistent && <p className="muted">Draft storage is unavailable. Your changes last until you close or reload this page.</p>}
-            <Link href="/plan" prefetch={false} className="text-link plan-link">Make a plan <ArrowRight size={17} aria-hidden /></Link>
+            <AppLink href="/plan" className="text-link plan-link">Make a plan <ArrowRight size={17} aria-hidden /></AppLink>
           </div>
         </div>
         <AtmospherePlate />

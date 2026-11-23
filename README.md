@@ -39,3 +39,9 @@ npm run build
 ```
 
 The included Dockerfile builds a standalone Linux image. Mount a writable volume at `/var/data` for the quota database and set the runtime variables when starting the container. `GET /api/health` reports core app readiness.
+
+## Offline planner
+
+Run `npm run build` followed by `npm start` to test the offline planner. Open either page in a browser on localhost or an HTTPS origin. Wait for **Available offline** in the footer. Both pages, the Delhi replay, reading imports and manual edits work offline. Drafts stay in IndexedDB. AI suggestions require a connection.
+
+The production build emits the versioned service worker. An installed update offers **Load saved update** once its complete shell has been downloaded and checked. The existing shell remains available while the next version installs.
