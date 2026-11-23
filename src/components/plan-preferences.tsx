@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { SlidersHorizontal } from "lucide-react";
 import type { Draft } from "@/lib/draft";
 import { preferenceKeys, preferenceLabel, preferenceLabels, type PreferenceKey } from "@/lib/preferences";
 import type { RevisionResponse } from "@/lib/revision-schema";
@@ -21,6 +20,7 @@ export function PlanPreferences() {
   const { draft, updateDraft, ready } = useDraft();
   const [text, setText] = useState("");
   const [online, setOnline] = useState(true);
+  const [available, setAvailable] = useState<boolean | null>(null);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState("");
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -43,6 +43,18 @@ export function PlanPreferences() {
 
   useEffect(() => () => request.current?.abort(), [draft]);
 
+  useEffect(() => {
+    if (!online || !navigator.onLine) return;
+    const controller = new AbortController();
+    setAvailable(null);
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]);
+    fetch("/api/v1/revisions", { signal, cache: "no-store" })
+      .then(async (response) => response.ok && (await response.json())?.available === true)
+      .then((enabled) => { if (!controller.signal.aborted) setAvailable(enabled); })
+      .catch(() => { if (!controller.signal.aborted) setAvailable(false); });
+    return () => controller.abort();
+  }, [online]);
+
   function setPreference(key: PreferenceKey, value: boolean | null) {
     setProposal(null);
     setNotice("");
@@ -54,7 +66,7 @@ export function PlanPreferences() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!ready || request.current || !online) return;
+    if (!ready || request.current || !online || !available) return;
     const update = text.trim();
     if (!update || Array.from(update).length > 500) {
       setNotice(failureMessages.invalid_request);
@@ -123,9 +135,7 @@ export function PlanPreferences() {
 
   return (
     <section className="preferences-workbench" aria-labelledby="preferences-title">
-      <div className="section-line">
-        <h2 className="eyebrow" id="preferences-title"><SlidersHorizontal size={17} aria-hidden /> Plan preferences</h2>
-      </div>
+      <h2 className="sr-only" id="preferences-title">Plan preferences</h2>
       <div className="preferences-grid">
         <div className="preference-fields">
           {preferenceKeys.map((key) => (
@@ -145,16 +155,16 @@ export function PlanPreferences() {
           ))}
         </div>
         <div className="preference-suggestions">
-          <form onSubmit={submit} className="revision-form">
+          {online && available === true && <form onSubmit={submit} className="revision-form">
             <label htmlFor="plan-update">What changed?</label>
             <textarea id="plan-update" rows={3} maxLength={1000} value={text} onChange={(event) => setText(event.target.value)} aria-describedby="revision-disclosure" placeholder="We don’t have a purifier or Metro access." />
             <p className="muted" id="revision-disclosure">Your submitted text and these four preferences go to Groq. Leave out names, addresses and medical details.</p>
             <button className="button button-primary" type="submit" disabled={!ready || !online || pending || !text.trim()}>
               {pending ? "Checking the update…" : "Suggest preference changes"}
             </button>
-          </form>
-          <p role="status" className="form-notice">{online ? notice : "AI suggestions require an internet connection."}</p>
-          {visibleProposal && (
+          </form>}
+          <p role="status" className="form-notice">{!online ? "AI suggestions require an internet connection." : available === false ? unavailable : available === null ? "Checking AI availability…" : notice}</p>
+          {online && available === true && visibleProposal && (
             <div className="revision-preview" aria-label="Suggested changes">
               <h3>Review the proposed changes</h3>
               <ul>

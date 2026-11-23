@@ -143,9 +143,12 @@ export function OfflineStatus() {
     <div className="offline-state">
       <p role="status">{online ? <Download size={15} aria-hidden /> : <WifiOff size={15} aria-hidden />}{status}</p>
       {waiting && (
-        <button className="button button-subtle" type="button" disabled={loadingUpdate} onClick={() => void loadUpdate()}>
-          <RefreshCw size={15} aria-hidden />{loadingUpdate ? "Loading update…" : "Load saved update"}
-        </button>
+        <div className="offline-update">
+          <p>A new version is ready.</p>
+          <button className="button button-primary" type="button" disabled={loadingUpdate} onClick={() => void loadUpdate()}>
+            <RefreshCw size={15} aria-hidden />{loadingUpdate ? "Loading update…" : "Load saved update"}
+          </button>
+        </div>
       )}
       {online && availability === "unavailable" && controlled && !waiting && (
         <button className="button button-subtle" type="button" onClick={() => void repairCache()}>Retry offline download</button>

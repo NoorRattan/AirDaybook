@@ -5,10 +5,8 @@ import { SiteHeader, SiteFooter } from "@/components/site-shell";
 import "./globals.css";
 
 const display = localFont({
-  src: [
-    { path: "../../node_modules/@fontsource/instrument-serif/files/instrument-serif-latin-400-normal.woff2", weight: "400", style: "normal" },
-    { path: "../../node_modules/@fontsource/instrument-serif/files/instrument-serif-latin-400-italic.woff2", weight: "400", style: "italic" },
-  ],
+  src: "../../node_modules/@fontsource/instrument-serif/files/instrument-serif-latin-400-normal.woff2",
+  weight: "400",
   variable: "--journal-display",
   display: "swap",
   adjustFontFallback: "Times New Roman",
@@ -31,7 +29,7 @@ const mono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: { default: "AirDaybook — Read your air. Plan your day.", template: "%s · AirDaybook" },
+  title: { default: "AirDaybook · Air quality and your day", template: "%s · AirDaybook" },
   description: "A local-first air-quality and daily planning workspace for Delhi-NCR households.",
   applicationName: "AirDaybook",
 };

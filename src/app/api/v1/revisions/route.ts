@@ -23,6 +23,10 @@ const errors = {
 type ErrorCode = keyof typeof errors;
 type Failure = { retryAfter?: number; category?: string; upstreamStatus?: number };
 
+export function GET() {
+  return Response.json({ available: aiConfiguration().kind === "ready" }, { headers: { "Cache-Control": "no-store" } });
+}
+
 export async function POST(request: Request) {
   const started = Date.now();
   const requestId = randomUUID();

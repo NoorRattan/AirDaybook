@@ -1,20 +1,16 @@
 "use client";
 
-import { Environment, Lightformer } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Bloom, DepthOfField, EffectComposer } from "@react-three/postprocessing";
-import { LazyMotion, domAnimation } from "motion/react";
-import * as m from "motion/react-m";
-import { Suspense, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
-import { Color, MathUtils, Object3D, Vector3, type Group, type InstancedMesh } from "three";
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import { Color, MathUtils, Object3D, Vector3, type InstancedMesh } from "three";
 
 export type Viewpoint = "street" | "roof" | "sky";
 
 export type AtmosphereProps = {
   viewpoint: Viewpoint;
   paused: boolean;
-  visible: boolean;
   pointer: RefObject<{ x: number; y: number }>;
+  redraw: RefObject<(() => void) | null>;
   onPaint: () => void;
   onUnavailable: () => void;
 };
@@ -24,7 +20,7 @@ const cameras: Record<Viewpoint, [number, number, number]> = {
   roof: [21, 17, 27],
   sky: [13, 29, 24],
 };
-const focus = new Vector3(0, 1.6, 0);
+const lookAt = new Vector3(0, 1.2, 0);
 
 const palettes = ["#5a3b39", "#9a5745", "#b5795d", "#cc9e7e", "#4f4546", "#876659"];
 
@@ -43,11 +39,6 @@ const buildings = Array.from({ length: 110 }, (_, index) => {
   const depth = 0.92 + sample(index + 6) * 0.67;
   return { x, z, height, width, depth, color: palettes[index % palettes.length] };
 }).filter(({ x, z }) => Math.abs(x + z * 0.55 - 0.8) > 1.45);
-
-const motes = Float32Array.from({ length: 150 }, (_, index) => {
-  if (index % 3 === 1) return sample(index + 500) * 6 + 0.65;
-  return (sample(index + 900) - 0.5) * 24;
-});
 
 function CityModel() {
   const walls = useRef<InstancedMesh>(null);
@@ -170,93 +161,54 @@ function ElevatedMetro() {
   );
 }
 
-function Perspective({ viewpoint, paused, visible, pointer, onPaint, onUnavailable }: AtmosphereProps) {
+function Perspective({ viewpoint, paused, pointer, redraw, onPaint, onUnavailable }: AtmosphereProps) {
   const { gl, invalidate } = useThree();
-  const dust = useRef<Group>(null);
   const painted = useRef(false);
   const destination = useRef(new Vector3());
-  const lookAt = useRef(new Vector3(0, 1.2, 0));
 
   useEffect(() => {
     const canvas = gl.domElement;
-    const contextLost = (event: Event) => { event.preventDefault(); onUnavailable(); };
+    const contextLost = () => onUnavailable();
+    redraw.current = invalidate;
     canvas.addEventListener("webglcontextlost", contextLost);
-    return () => canvas.removeEventListener("webglcontextlost", contextLost);
-  }, [gl, onUnavailable]);
+    return () => {
+      redraw.current = null;
+      canvas.removeEventListener("webglcontextlost", contextLost);
+    };
+  }, [gl, invalidate, onUnavailable, redraw]);
 
-  useEffect(() => { if (visible) invalidate(); }, [viewpoint, paused, visible, invalidate]);
+  useEffect(() => { invalidate(); }, [viewpoint, paused, invalidate]);
 
-  useFrame(({ camera, clock }, delta) => {
+  useFrame(({ camera }, delta) => {
     const [x, y, z] = cameras[viewpoint];
     const tilt = paused ? { x: 0, y: 0 } : pointer.current;
     destination.current.set(x + tilt.x * 3, y - tilt.y * 1.7, z + tilt.x * 2);
-    if (paused) camera.position.copy(destination.current);
-    else camera.position.lerp(destination.current, MathUtils.damp(0, 1, 4.4, Math.min(delta, 0.033)));
-    camera.lookAt(lookAt.current);
+    const moving = !paused && camera.position.distanceToSquared(destination.current) > 0.0001;
+    if (moving) camera.position.lerp(destination.current, MathUtils.damp(0, 1, 6, MathUtils.clamp(delta, 0.016, 0.033)));
+    else camera.position.copy(destination.current);
+    camera.lookAt(lookAt);
     if (!painted.current) {
       painted.current = true;
       onPaint();
     }
-    if (!visible || paused) return;
-    if (dust.current) {
-      dust.current.rotation.y = clock.elapsedTime * 0.021;
-      dust.current.position.y = Math.sin(clock.elapsedTime * 0.35) * 0.35;
-    }
-    invalidate();
+    if (moving) invalidate();
   });
 
-  return (
-    <group ref={dust}>
-      <points>
-        <bufferGeometry><bufferAttribute attach="attributes-position" args={[motes, 3]} /></bufferGeometry>
-        <pointsMaterial color="#f2a568" size={0.074} transparent opacity={0.63} depthWrite={false} />
-      </points>
-    </group>
-  );
+  return null;
 }
 
 export function AtmosphereScene(props: AtmosphereProps) {
-  const enhanced = window.matchMedia("(min-width: 850px) and (pointer: fine)").matches &&
-    navigator.hardwareConcurrency >= 8;
   return (
-    <LazyMotion features={domAnimation}>
-      <m.div className="scene-surface" initial={{ opacity: 0.6 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }}>
-        <Canvas
-          camera={{ position: cameras.roof, fov: 45, near: 0.2, far: 110 }}
-          dpr={enhanced ? [1, 1.45] : [1, 1.15]}
-          frameloop={props.visible ? "demand" : "never"}
-          gl={{ antialias: !enhanced, powerPreference: "low-power" }}
-          shadows
-        >
-          <color attach="background" args={["#a67157"]} />
-          <fogExp2 attach="fog" args={["#a67157", 0.014]} />
-          <ambientLight intensity={0.83} color="#e8b593" />
-          <directionalLight
-            position={[13, 22, -17]}
-            color="#ffe2bd"
-            intensity={2.7}
-            castShadow
-            shadow-mapSize={enhanced ? [1024, 1024] : [512, 512]}
-            shadow-camera-left={-22} shadow-camera-right={22}
-            shadow-camera-top={22} shadow-camera-bottom={-22}
-            shadow-normalBias={0.04}
-          />
-          <Suspense fallback={null}>
-            <Environment frames={1} resolution={64}>
-              <Lightformer form="rect" intensity={4} color="#ffce9b" position={[7, 8, -4]} scale={[10, 6, 1]} target={[0, 0, 0]} />
-              <Lightformer form="rect" intensity={0.85} color="#d5bdea" position={[-6, 4, 5]} scale={[7, 4, 1]} target={[0, 0, 0]} />
-            </Environment>
-          </Suspense>
-          <CityModel />
-          <Perspective {...props} />
-          {enhanced && (
-            <EffectComposer multisampling={0}>
-              <Bloom intensity={0.28} luminanceThreshold={1.03} mipmapBlur />
-              <DepthOfField target={focus} focusRange={7} bokehScale={1.5} resolutionScale={0.5} />
-            </EffectComposer>
-          )}
-        </Canvas>
-      </m.div>
-    </LazyMotion>
+    <Canvas camera={{ position: cameras.roof, fov: 45, near: 0.2, far: 110 }} dpr={[1, 1.25]}
+      frameloop="demand" gl={{ antialias: true, powerPreference: "low-power", alpha: false }} shadows>
+      <color attach="background" args={["#a67157"]} />
+      <fogExp2 attach="fog" args={["#a67157", 0.019]} />
+      <hemisphereLight args={["#ffe2bd", "#74575f", 1.7]} />
+      <directionalLight position={[13, 22, -17]} color="#ffe2bd" intensity={2.4} castShadow
+        shadow-mapSize={[512, 512]} shadow-camera-left={-22} shadow-camera-right={22}
+        shadow-camera-top={22} shadow-camera-bottom={-22} shadow-normalBias={0.04} />
+      <CityModel />
+      <Perspective {...props} />
+    </Canvas>
   );
 }

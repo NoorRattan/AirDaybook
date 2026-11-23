@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Route } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { useRef, useState, type FormEvent } from "react";
 import { metroSavings, metroSources, tripTimes, type TravelComparison, type Trip } from "@/lib/travel";
 
@@ -144,8 +144,7 @@ export function TripComparison({ saved, ready, onSave }: {
 
   return (
     <section className="planner-chapter" aria-labelledby="routes-title">
-      <h2 id="routes-title" className="eyebrow"><Route size={17} aria-hidden /> Compare two routes</h2>
-      <p className="chapter-heading">The whole trip.</p>
+      <h2 id="routes-title" className="sr-only">Route details</h2>
       <p className="chapter-intro" id="route-instructions">Include both ends of the journey. Enter 0 for legs you skip and leave unknown times blank. Count outside waiting as part of all waiting.</p>
       <form key={String(ready)} className="trip-form" onSubmit={saveRoutes} onChange={() => {
         editVersion.current += 1;

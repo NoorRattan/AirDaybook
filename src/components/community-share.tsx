@@ -28,8 +28,7 @@ export function CommunityShare({ selection, now, ready }: { selection: ReadingSe
   return (
     <section className="planner-chapter" aria-labelledby="community-title">
       <h2 id="community-title" className="eyebrow"><Send size={16} aria-hidden /> Community share</h2>
-      <p className="chapter-heading">A note for the group.</p>
-      <p className="chapter-intro" id="community-disclosure">Start with your selected reading. Add the activity and any agreed action you want the group to see. Your saved commitments and routes stay private.</p>
+      <p className="chapter-intro" id="community-disclosure">Add the shared activity and action. The note includes the reading and what you enter here.</p>
       <div className="share-workbench">
         <fieldset disabled={!ready} aria-describedby="community-disclosure" onChange={() => setNotice("")}>
           <label>Note language

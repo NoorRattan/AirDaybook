@@ -1,17 +1,16 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent } from "react";
-import { ArrowRight, ArrowUpRight, FileUp, MapPin, PencilLine } from "lucide-react";
+import { FileUp, MapPin, PencilLine } from "lucide-react";
 import { MAX_IMPORT_BYTES, type ReadingSelection } from "@/lib/readings";
 import { useDraft } from "./draft-provider";
 import { ReadingDialog } from "./reading-dialog";
 import { ReadingCard, ReplayDetails } from "./reading-card";
 import { AtmospherePlate } from "./atmosphere-plate";
-import { JournalScroll } from "./journal-scroll";
 import { AppLink } from "./app-link";
 
 export function TodayWorkspace() {
-  const { updateDraft, ready, persistent } = useDraft();
+  const { draft, updateDraft, ready, persistent } = useDraft();
   const dialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const readingAction = useRef(0);
@@ -45,8 +44,7 @@ export function TodayWorkspace() {
     try {
       data = JSON.parse(await file.text());
     } catch {
-      if (readingAction.current !== request) return;
-      setError("This file could not be read as JSON.");
+      if (readingAction.current === request) setError("This file could not be read as JSON.");
       return;
     }
     if (readingAction.current !== request) return;
@@ -55,46 +53,46 @@ export function TodayWorkspace() {
       if (readingAction.current !== request) return;
       selectReading({ kind: "import", observation: parseObservation(data) }, "Reading imported from your file.");
     } catch (cause) {
-      if (readingAction.current !== request) return;
-      setError(cause instanceof Error ? cause.message : "The reading could not be imported.");
+      if (readingAction.current === request) {
+        setError(cause instanceof Error ? cause.message : "The reading could not be imported.");
+      }
     }
   }
 
   return (
     <main className="shell journal-shell" id="main-content">
       <section className="journal-lead" aria-labelledby="hero-title">
-        <div className="journal-edition">
-          <span><MapPin size={14} aria-hidden /> Delhi–NCR</span>
-          <span>Air quality journal</span>
-        </div>
         <div className="lead-copy">
-          <h1 id="hero-title">The air<br /><em>around us.</em></h1>
-          <p className="lead-dek">Read the air. Plan around what can’t move.</p>
+          <p className="journal-edition"><MapPin size={16} aria-hidden /> Delhi–NCR</p>
+          <h1 id="hero-title">Air quality and your day</h1>
+          <p className="lead-dek">Start with a local reading. Then plan school pickups, errands and time outdoors around what you can change.</p>
           <div className="reading-workspace">
             <ReadingCard />
             <div className="reading-actions">
-              <button type="button" className="button button-primary" onClick={() => dialog.current?.showModal()} disabled={!ready}><PencilLine size={16} aria-hidden /> Enter a reading</button>
-              <button type="button" className="button button-subtle" onClick={() => fileInput.current?.click()} disabled={!ready}><FileUp size={16} aria-hidden /> Import JSON</button>
+              <button type="button" className={draft.selection ? "button button-subtle" : "button button-primary"} onClick={() => dialog.current?.showModal()} disabled={!ready}><PencilLine size={16} aria-hidden /> {draft.selection ? "Change reading" : "Enter a reading"}</button>
+              <AppLink href="/plan" className={draft.selection ? "button button-primary" : "button button-subtle"}>Open My Plan</AppLink>
+            </div>
+            <div className="reading-shortcuts">
+              <button type="button" className="text-link" onClick={() => fileInput.current?.click()} disabled={!ready}><FileUp size={16} aria-hidden /> Import JSON</button>
+              <button type="button" className="text-link" disabled={!ready} onClick={loadReplay}>Try historical replay</button>
               <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={importReading} />
             </div>
-            <div role="status">{notice && <p className="form-notice">{notice}</p>}</div>
+            <p role="status" className="form-notice">{notice}</p>
             {error && <p role="alert" className="form-error">{error} The selected reading is unchanged.</p>}
             {ready && !persistent && <p className="muted">Draft storage is unavailable. Your changes last until you close or reload this page.</p>}
-            <AppLink href="/plan" className="text-link plan-link">Make a plan <ArrowRight size={17} aria-hidden /></AppLink>
           </div>
         </div>
         <AtmospherePlate />
       </section>
 
-      <section className="archive" aria-labelledby="replay-title" data-journal-archive>
+      <section className="archive" aria-labelledby="replay-title">
         <div className="archive-index">
           <p className="eyebrow">Historical replay</p>
           <time dateTime="2026-11-06">06 <span>Nov 2026</span></time>
         </div>
         <div className="archive-body">
           <h2 id="replay-title">When Delhi entered Stage III</h2>
-          <p>Follow two dated CAQM orders, from the forecast that triggered Stage III to its revocation.</p>
-          <button type="button" className="button button-primary" disabled={!ready} onClick={loadReplay}>Try historical replay <ArrowUpRight size={17} aria-hidden /></button>
+          <p>See the 6 November 2026 reading and the orders that followed.</p>
           <ReplayDetails />
         </div>
         <div className="archive-value" aria-label="Delhi city AQI 382 on 6 November 2026, historical">
@@ -103,7 +101,6 @@ export function TodayWorkspace() {
       </section>
 
       <ReadingDialog dialogRef={dialog} onSave={(observation) => selectReading({ kind: "manual", observation }, "Reading added.")} />
-      <JournalScroll />
     </main>
   );
 }

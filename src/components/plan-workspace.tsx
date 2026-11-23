@@ -1,13 +1,19 @@
 "use client";
 
-import { ArrowUpRight, CalendarClock, Clock3, Footprints, LockKeyhole, Radio, Trash2, X } from "lucide-react";
+import { CalendarClock, Clock3, Footprints, Radio, Trash2, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { emptyDraft, type Plan } from "@/lib/draft";
 import { readingView } from "@/lib/readings";
-import { CommunityShare } from "./community-share";
+import { AppLink } from "./app-link";
 import { useDraft } from "./draft-provider";
-import { PlanPreferences } from "./plan-preferences";
-import { TripComparison } from "./trip-comparison";
+import { PlanningActions } from "./planning-actions";
+import { PlanTool } from "./plan-tool";
+
+const toolLoading = () => <p role="status">Opening tool…</p>;
+const PlanPreferences = dynamic(() => import("./plan-preferences").then((module) => module.PlanPreferences), { ssr: false, loading: toolLoading });
+const TripComparison = dynamic(() => import("./trip-comparison").then((module) => module.TripComparison), { ssr: false, loading: toolLoading });
+const CommunityShare = dynamic(() => import("./community-share").then((module) => module.CommunityShare), { ssr: false, loading: toolLoading });
 
 const replayPlan: Plan = {
   commitment: "School pickup", time: "15:00", previousWait: null, revisedWait: null,
@@ -97,11 +103,10 @@ function PlanEditor({ initial, ready, onSave }: { initial: Plan | null; ready: b
   }
 
   return (
-    <div className="planner-grid">
+    <div className="planner-grid" id="schedule">
       <section className="planner-panel" aria-labelledby="commitment-title">
         <div className="section-line">
-          <h2 id="commitment-title" className="eyebrow"><CalendarClock size={17} aria-hidden /> Edit your plan</h2>
-          <LockKeyhole size={16} className="muted" aria-hidden />
+          <h2 id="commitment-title" className="section-title"><CalendarClock size={19} aria-hidden /> Schedule</h2>
         </div>
         <form className="plan-form" onSubmit={savePlan} aria-describedby={error ? "plan-error" : undefined}>
           <div className="commitment-inputs">
@@ -116,7 +121,7 @@ function PlanEditor({ initial, ready, onSave }: { initial: Plan | null; ready: b
             </div>
           </fieldset>
           {error && <p id="plan-error" role="alert" className="form-error">{error}</p>}
-          <button className="button button-primary" type="submit" disabled={!ready}>Save plan <ArrowUpRight size={16} aria-hidden /></button>
+          <button className="button button-primary" type="submit" disabled={!ready}>Save plan</button>
         </form>
       </section>
       <WaitComparison before={waitMinutes(before)} after={waitMinutes(after)} />
@@ -146,10 +151,13 @@ export function PlanWorkspace() {
   return (
     <main className="shell journal-shell planner-shell" id="main-content">
       <div className="planner-heading">
-        <p className="eyebrow">Your day</p>
-        <h1 ref={heading} tabIndex={-1}>My <em>Plan.</em></h1>
-        <p>Set the time that stays fixed. Compare the minutes you can change.</p>
+        <h1 ref={heading} tabIndex={-1}>My Plan</h1>
+        <p>Keep your fixed commitments and make room for changes at home, on the way, and with your group.</p>
       </div>
+
+      <nav className="plan-nav" aria-label="Planning tools">
+        <a href="#schedule">Schedule</a><a href="#preferences">Preferences</a><a href="#routes">Travel</a><a href="#community">Group note</a>
+      </nav>
 
       <section className="commitment-band" aria-labelledby="fixed-time-display">
         <div>
@@ -165,6 +173,7 @@ export function PlanWorkspace() {
           <span className="eyebrow"><Radio size={16} aria-hidden /> Selected reading</span>
           <strong>{reading ? `${reading.place} · ${reading.value} ${reading.unit}` : "No reading selected"}</strong>
           {reading && <p>{reading.state} · {reading.time}</p>}
+          <AppLink href="/">{reading ? "View reading details" : "Add a reading"}</AppLink>
         </div>
       </section>
 
@@ -172,15 +181,24 @@ export function PlanWorkspace() {
         updateDraft((current) => ({ ...current, plan: next }));
         setNotice("Plan updated.");
       }} />
-      <PlanPreferences key={`preferences-${editor}`} />
-      <TripComparison key={`routes-${editor}`} saved={draft.travel} ready={ready} onSave={(travel) => {
-        updateDraft((current) => ({ ...current, travel }));
-      }} />
-      <CommunityShare key={`share-${editor}`} selection={draft.selection} now={now} ready={ready} />
+      <p role="status" className="form-notice schedule-notice">{notice}</p>
+      <PlanningActions preferences={draft.preferences} />
+      <div className="plan-tools">
+        <PlanTool id="preferences" title="Adjust preferences" description="Tell AirDaybook which options are available to you.">
+          <PlanPreferences key={`preferences-${editor}`} />
+        </PlanTool>
+        <PlanTool id="routes" title="Compare two routes" description="See time outdoors, total travel and the Metro CO₂ estimate.">
+          <TripComparison key={`routes-${editor}`} saved={draft.travel} ready={ready} onSave={(travel) => {
+            updateDraft((current) => ({ ...current, travel }));
+          }} />
+        </PlanTool>
+        <PlanTool id="community" title="Write a group note" description="Share a dated reading in English or Hindi.">
+          <CommunityShare key={`share-${editor}`} selection={draft.selection} now={now} ready={ready} />
+        </PlanTool>
+      </div>
       <div className="plan-footer">
         <div>
           <p>{persistent ? "Your reading and plan stay on this device." : "Draft storage is unavailable. Your changes last until you close or reload this page."}</p>
-          <p role="status" className="form-notice">{notice}</p>
         </div>
         <button className="button button-subtle" disabled={!ready || (!draft.selection && !plan && !draft.previousPreferences && !draft.travel)} onClick={() => clearDialog.current?.showModal()}><Trash2 size={16} aria-hidden /> Clear saved data</button>
       </div>

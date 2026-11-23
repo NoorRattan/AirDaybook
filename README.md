@@ -13,7 +13,7 @@ npm run dev
 
 Open [localhost:3000](http://localhost:3000). Use **Today** to choose a reading and **My Plan** to compare waiting estimates. Your reading and plan are stored in the browser. The optional 3D illustration is independent of AQI.
 
-In **My Plan**, enter door-to-door times for two routes. The Delhi Metro CO₂ estimate uses your one-way rail distance and an average motorized road-trip baseline, with both methods cited in the result. Use **Community share** to preview and copy a dated reading and group action in English or Hindi. The note starts with the selected reading. Add any group details you want to share.
+In **My Plan**, enter a fixed commitment and compare outdoor waiting times. Use the preferences, route comparison and group note sections as needed. The suggested actions use the preferences you confirm. The Delhi Metro CO₂ estimate uses your one-way rail distance and an average motorized road-trip baseline. Group notes support English and Hindi and include the reading and group details you enter in that section.
 
 ## AI preference suggestions
 
@@ -43,6 +43,8 @@ npm run build
 ```
 
 The included Dockerfile builds a standalone Linux image. Mount a writable volume at `/var/data` for the quota database and set the runtime variables when starting the container. `GET /api/health` reports core app readiness.
+
+The release workflow runs browser checks against the built image, including keyboard interaction, axe WCAG checks, offline editing, unsafe reading URLs, and WebGL failure. To run locally, install Chromium with `npx playwright-core install chromium` and use `npm run test:browser` against a running production build. Set `AIRDAYBOOK_TEST_ORIGIN` if it listens somewhere other than `http://127.0.0.1:3000`.
 
 ## Deploy the free preview on Vercel
 
