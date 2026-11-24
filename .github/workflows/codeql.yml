@@ -24,4 +24,4 @@ jobs:
         with:
           languages: javascript-typescript
           build-mode: none
-      - uses: github/codeql-action/analyze@bf58c2ac1f8060aa73f1225f461c80391348076a # v4
+      - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4
