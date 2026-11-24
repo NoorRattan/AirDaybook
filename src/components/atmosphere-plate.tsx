@@ -3,6 +3,7 @@
 import { Box, ImageIcon, Pause, Play } from "lucide-react";
 import { Component, useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import type { AtmosphereProps, Viewpoint } from "./atmosphere-scene";
+import { hero, mobileHeroMedia } from "@/lib/hero-assets";
 
 const viewpoints = [
   { id: "street", label: "Street", description: "A pickup can stay at the same time while the place you wait changes. Compare your outdoor waiting minutes in My Plan." },
@@ -119,10 +120,10 @@ export function AtmospherePlate() {
         if (mode === "3d" && !paused && active) redraw.current?.();
       }}>
         <picture>
-          <source type="image/avif" media="(max-width: 700px)" srcSet="/delhi-metro-dawn-small.avif" />
-          <source type="image/avif" srcSet="/delhi-metro-dawn.avif" />
-          <source media="(max-width: 700px)" srcSet="/delhi-metro-dawn-small.webp" />
-          <img src="/delhi-metro-dawn.webp" className="plate-image"
+          <source type="image/avif" media={mobileHeroMedia} srcSet={hero.mobileAvif.src} />
+          <source type="image/avif" srcSet={hero.desktopAvif.src} />
+          <source media={mobileHeroMedia} srcSet={hero.mobileWebp.src} />
+          <img src={hero.desktopWebp.src} className="plate-image"
             alt="Delhi rooftops and an elevated Metro train under winter haze."
             width={1440} height={720} fetchPriority="high" />
         </picture>

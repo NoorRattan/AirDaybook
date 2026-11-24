@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-check-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   contracts:
     runs-on: ubuntu-24.04
@@ -32,9 +36,11 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.19.0
-          package-manager-cache: false
+          cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm audit --omit=dev --audit-level=moderate
       - run: npm run lint
+      - run: node --test tests/lighthouse.test.mjs
       - run: npm run test:coverage
       - run: npm run build
       - run: npm run typecheck
@@ -51,7 +57,11 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.19.0
-          package-manager-cache: false
+          cache: npm
+      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-linux-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
       - name: Install browser test dependencies
         run: |
           npm ci --ignore-scripts --no-audit --no-fund

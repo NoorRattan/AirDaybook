@@ -5,7 +5,7 @@ import { join, sep } from "node:path";
 const next = ".next";
 const vercel = join(next, "output");
 const hasVercelOutput = await stat(join(vercel, "config.json")).then(() => true, () => false);
-const publicFiles = ["delhi-metro-dawn.webp", "delhi-metro-dawn-small.webp", "delhi-metro-dawn.avif", "delhi-metro-dawn-small.avif"];
+const publicFiles = ["manifest.webmanifest", "icons/app-192-v1.png", "icons/app-512-v1.png"];
 const routes = {
   "/": "index",
   "/plan": "plan",
@@ -62,7 +62,7 @@ const { polyfillFiles } = JSON.parse(await readFile(join(next, "build-manifest.j
 const initialScripts = new Set([...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*>/gi)]
   .filter(([tag]) => !/\bnomodule\b/i.test(tag)).map(([, src]) => src));
 const staticFiles = (await readdir(staticRoot, { recursive: true, withFileTypes: true }))
-  .filter((entry) => entry.isFile() && /\.(?:js|css|woff2?|ico)$/.test(entry.name))
+  .filter((entry) => entry.isFile() && /\.(?:js|css|woff2?|ico|avif|webp)$/.test(entry.name))
   .map((entry) => join(entry.parentPath, entry.name).slice(staticRoot.length + 1))
   .sort();
 const offlineFiles = [];

@@ -1,16 +1,30 @@
 # AirDaybook
 
-AirDaybook helps Delhi-NCR families and community groups plan around winter smog. Enter or import a dated air-quality reading, keep commitments such as school pickup fixed, and compare alternatives for outdoor waiting, travel, and errands. Copy a group note in English or Hindi with the reading and its source.
+AirDaybook helps families and community groups plan around winter smog. Check a dated local reading, compare daily routines and travel options, size a room’s air filtration, and draft an English or Hindi group note. The live Groq assistant suggests which tool to use and asks before changing preferences.
 
 [Live demo](https://airdaybook.vercel.app/) · [GitHub release checks](https://github.com/NoorRattan/AirDaybook/actions/workflows/release-check.yml)
+
+![Delhi rooftops and a Metro train under winter haze](public/social/airdaybook.jpg)
 
 ## Try the demo
 
 1. On **Today**, choose **Try historical replay** to load the 6 November 2026 Delhi example. For your own plan, use **Enter a reading** or **Import JSON**. The selected reading shows its date and source.
 2. Open **My Plan**. Enter 15 minutes for the current outdoor wait and 5 for the revised wait. The comparison shows **10 min less outside**, with the 3 pm pickup still in place.
-3. Open **Travel** to compare door-to-door routes. With the average motorized road-trip baseline selected, a 12 km Delhi Metro trip shows an estimated **0.29–0.39 kg CO₂ avoided**. Use **Group note** to copy a dated summary.
+3. Select **Ask the day-plan assistant** and try “We don’t have a purifier. What can we do about indoor air?” Review the suggested tool and any preference edits.
+4. Open **Travel** to compare door-to-door routes. With the average motorized road-trip baseline selected, a 12 km Delhi Metro trip shows an estimated **0.29–0.39 kg CO₂ avoided**. Use **Group note** to copy a dated summary.
 
-The demo uses manual and historical readings. The core planner runs without an account, an API key, or a database. **Explore 3D** opens an optional neighbourhood illustration with still viewpoints available offline or when WebGL is unavailable.
+The app accepts manual and historical readings and labels model estimates separately. **Explore 3D** opens a neighbourhood illustration with still viewpoints available offline or when WebGL is unavailable.
+
+```mermaid
+flowchart LR
+    Reading[Reading or city estimate] --> Planner[Local planner and impact calculations]
+    Planner --> Draft[IndexedDB and offline shell]
+    Planner --> Note[English or Hindi group note]
+    Text[User-submitted follow-up] --> Quota[Vercel API and Postgres quota]
+    Quota --> Groq[Groq tool or preference proposal]
+    Groq --> Review[User review and confirmation]
+    Review --> Planner
+```
 
 ## Run locally
 

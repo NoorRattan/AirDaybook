@@ -30,6 +30,12 @@ const config: NextConfig = {
         { key: "Referrer-Policy", value: "no-referrer" },
         { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
       ],
+    }, {
+      source: "/api/:path*",
+      headers: [{ key: "Content-Security-Policy", value: "default-src 'none'; frame-ancestors 'none'; sandbox" }],
+    }, {
+      source: "/icons/:icon(app-192-v1\\.png|app-512-v1\\.png|apple-touch-v1\\.png)",
+      headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
     }];
   },
 };

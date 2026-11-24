@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { DraftProvider } from "@/components/draft-provider";
 import { SiteHeader, SiteFooter } from "@/components/site-shell";
 import { LocaleProvider, SkipLink } from "@/components/locale";
+import { siteOrigin } from "@/lib/site-metadata";
 import "./globals.css";
 
 const display = localFont({
@@ -22,10 +23,13 @@ const body = localFont({
 });
 
 export const metadata: Metadata = {
-  title: { default: "AirDaybook · Air quality and your day", template: "%s · AirDaybook" },
-  description: "A local-first air-quality and daily planning workspace for Delhi-NCR households.",
+  metadataBase: new URL(siteOrigin),
+  title: "Page not found · AirDaybook",
   applicationName: "AirDaybook",
+  manifest: "/manifest.webmanifest",
+  icons: { apple: [{ url: "/icons/apple-touch-v1.png", sizes: "180x180" }] },
 };
+export const viewport: Viewport = { themeColor: "#175b50" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

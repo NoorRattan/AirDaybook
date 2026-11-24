@@ -1,0 +1,55 @@
+name: Hosted production verification
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Release image check]
+    branches: [main]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-production-verification
+  cancel-in-progress: true
+
+jobs:
+  production:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      AIRDAYBOOK_TEST_ORIGIN: https://airdaybook.vercel.app
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24.19.0
+          cache: npm
+      - name: Wait for Vercel to serve this commit
+        shell: bash
+        run: |
+          expected="${RELEASE_SHA:0:12}"
+          for attempt in {1..36}; do
+            if curl --fail --silent --max-time 5 -D - -o /dev/null "$AIRDAYBOOK_TEST_ORIGIN/api/health" |
+                tr -d '\r' | grep -iFx "x-airdaybook-release: $expected"; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Vercel did not serve expected commit $expected"
+          exit 1
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-linux-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
+      - run: npx --no-install playwright-core install --with-deps chromium
+      - run: node scripts/smoke-release.mjs "$AIRDAYBOOK_TEST_ORIGIN"
+      - run: npm run test:browser
+      - run: npm run test:lighthouse -- --release-gate

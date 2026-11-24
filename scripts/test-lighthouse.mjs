@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { chromium } from "playwright-core";
 import { fileURLToPath } from "node:url";
+import { collectLighthouseReport } from "./lighthouse-report.mjs";
 
 const run = promisify(execFile);
 const cli = fileURLToPath(new URL("../node_modules/lighthouse/cli/index.js", import.meta.url));
@@ -14,12 +15,16 @@ const metrics = new Map([["/", []], ["/plan", []]]);
 
 for (let round = 0; round < 3; round++) {
   for (const [route, scores] of metrics) {
-    const { stdout } = await run(process.execPath, [
-      cli, new URL(route, origin).href, "--quiet", "--output=json", "--output-path=stdout",
+    const url = new URL(route, origin).href;
+    const { audits, categories } = await collectLighthouseReport(() => run(process.execPath, [
+      cli, url, "--quiet", "--output=json", "--output-path=stdout",
       "--only-categories=performance,accessibility,best-practices,seo", "--chrome-flags=--headless=new --no-sandbox --disable-gpu",
-    ], { env: { ...process.env, CHROME_PATH: process.env.CHROME_PATH ?? chromium.executablePath() }, maxBuffer: 15_000_000 });
-    const { audits, categories, runtimeError } = JSON.parse(stdout);
-    assert(!runtimeError, runtimeError?.message);
+    ], { env: { ...process.env, CHROME_PATH: process.env.CHROME_PATH ?? chromium.executablePath() }, maxBuffer: 15_000_000, timeout: 90_000 }), {
+      url, onRetry: (attempt, limit) => console.warn(`Lighthouse missed navigation for ${route} (run ${round + 1}, attempt ${attempt}/${limit}). Retrying.`),
+    });
+    for (const key of ["performance", "accessibility", "best-practices", "seo"]) {
+      assert(Number.isFinite(categories[key]?.score), `Missing Lighthouse ${key} score for ${url}`);
+    }
     const result = {
       performance: Math.round(categories.performance.score * 100),
       accessibility: Math.round(categories.accessibility.score * 100),

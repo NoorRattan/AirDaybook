@@ -23,6 +23,24 @@ for (let attempt = 0; attempt < 30; attempt++) {
 assert(health?.ok, "Core health did not become ready.");
 assert.deepEqual(await health.json(), { status: "ok" });
 assert.match(health.headers.get("cache-control") ?? "", /no-store/);
+assert.match(health.headers.get("content-security-policy") ?? "", /default-src 'none'/);
+const rejected = await get("/api/health", { method: "POST" });
+assert.equal(rejected.status, 405);
+assert.equal(rejected.headers.get("allow"), "GET, HEAD, OPTIONS");
+
+const missing = await get("/missing-release-smoke-page");
+assert.equal(missing.status, 404);
+assert.match(await missing.text(), /<title>Page not found · AirDaybook<\/title>/);
+const manifestResponse = await get("/manifest.webmanifest");
+assert(manifestResponse.ok, "The install manifest must be published.");
+const installManifest = await manifestResponse.json();
+assert.equal(installManifest.start_url, "/");
+assert.equal(installManifest.display, "standalone");
+assert(installManifest.icons.some(({ purpose }) => purpose.split(" ").includes("maskable")));
+for (const file of ["/robots.txt", "/sitemap.xml", "/social/airdaybook.jpg", "/icons/apple-touch-v1.png"]) {
+  const resource = await get(file, { method: "HEAD" });
+  assert(resource.ok, `${file} must be published.`);
+}
 
 const worker = await get("/sw.js");
 assert(worker.ok, "The offline worker must be published.");
@@ -48,6 +66,18 @@ for (const [path, expected] of entries) {
   if (routes.includes(path)) {
     const html = data.toString("utf8");
     assert.match(html, /<title>[^<]*AirDaybook[^<]*<\/title>/);
+    assert.match(html, /<link rel="canonical" href="https:\/\/airdaybook\.vercel\.app/);
+    assert.match(html, /<meta property="og:image" content="https:\/\/airdaybook\.vercel\.app\/social\/airdaybook\.jpg"/);
+    if (path === "/") {
+      const imageHints = [...html.matchAll(/<link\b(?=[^>]*\brel="preload")(?=[^>]*\bas="image")[^>]*\bhref="([^"]+\.avif)"[^>]*>/g)];
+      assert.equal(imageHints.length, 2, "Today must have one AVIF preload per viewport range.");
+      assert.equal(new Set(imageHints.map(([, src]) => src)).size, 2);
+      for (const [, src] of imageHints) {
+        assert(entries.some(([url]) => url === src), `The offline shell must include ${src}.`);
+        const image = await get(src, { method: "HEAD" });
+        assert.match(image.headers.get("cache-control") ?? "", /immutable/);
+      }
+    }
     const [policy] = html.match(/<meta http-equiv="Content-Security-Policy" content="script-src 'self'[^"]*">/) ?? [];
     assert(policy, "The static document must carry its script policy into offline mode.");
     for (const [, attributes, script] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
