@@ -74,7 +74,8 @@ jobs:
           container=$(docker run --detach --publish 127.0.0.1:3000:3000 \
             --env AI_ENABLED=false --env "RELEASE_ID=$GITHUB_SHA" airdaybook:check)
           trap 'docker rm -f "$container" >/dev/null' EXIT
-          if ! node scripts/smoke-release.mjs http://127.0.0.1:3000 || ! npm run test:browser || ! npm run test:lighthouse -- --release-gate; then
+          if ! node scripts/smoke-release.mjs http://127.0.0.1:3000 || ! npm run test:browser ||
+              ! CHROME_PATH="$(command -v google-chrome || true)" npm run test:lighthouse -- --release-gate; then
             docker logs "$container"
             exit 1
           fi

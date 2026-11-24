@@ -19,7 +19,7 @@ for (let round = 0; round < 3; round++) {
     const { audits, categories } = await collectLighthouseReport(() => run(process.execPath, [
       cli, url, "--quiet", "--output=json", "--output-path=stdout",
       "--only-categories=performance,accessibility,best-practices,seo", "--chrome-flags=--headless=new --no-sandbox --disable-gpu",
-    ], { env: { ...process.env, CHROME_PATH: process.env.CHROME_PATH ?? chromium.executablePath() }, maxBuffer: 15_000_000, timeout: 90_000 }), {
+    ], { env: { ...process.env, CHROME_PATH: process.env.CHROME_PATH || chromium.executablePath() }, maxBuffer: 15_000_000, timeout: 90_000 }), {
       url, onRetry: (attempt, limit) => console.warn(`Lighthouse missed navigation for ${route} (run ${round + 1}, attempt ${attempt}/${limit}). Retrying.`),
     });
     for (const key of ["performance", "accessibility", "best-practices", "seo"]) {

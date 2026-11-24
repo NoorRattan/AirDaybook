@@ -24,6 +24,18 @@ test("fails after three missed traces", async () => {
   await assert.rejects(collectLighthouseReport(async () => { throw runtimeFailure("NO_NAVSTART"); }, { url }), /attempt 3.*NO_NAVSTART/);
 });
 
+test("retries when the CLI prints a missing trace to stderr before writing complete JSON", async () => {
+  let calls = 0;
+  await collectLighthouseReport(async () => {
+    if (++calls <= 2) throw Object.assign(new Error("Lighthouse exited with status 1"), {
+      stdout: calls === 1 ? "" : '{"requestedUrl":',
+      stderr: "Runtime error encountered: Something went wrong with recording the trace over your page load. Please run Lighthouse again. (NO_NAVSTART)\n",
+    });
+    return { stdout: "{}" };
+  }, { url });
+  assert.equal(calls, 3);
+});
+
 test("fails immediately when a Lighthouse runtime error differs", async () => {
   let calls = 0;
   await assert.rejects(collectLighthouseReport(async () => {

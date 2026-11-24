@@ -52,4 +52,4 @@ jobs:
       - run: npx --no-install playwright-core install --with-deps chromium
       - run: node scripts/smoke-release.mjs "$AIRDAYBOOK_TEST_ORIGIN"
       - run: npm run test:browser
-      - run: npm run test:lighthouse -- --release-gate
+      - run: CHROME_PATH="$(command -v google-chrome || true)" npm run test:lighthouse -- --release-gate
