@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale } from "./locale";
+import { SourceLink } from "./source-link";
 
 export function CareHelp({ solidFuel = false }: { solidFuel?: boolean }) {
   const { language } = useLocale();
@@ -15,7 +16,7 @@ export function CareHelp({ solidFuel = false }: { solidFuel?: boolean }) {
         ? "लकड़ी या कोयले की आग से कार्बन मोनोऑक्साइड बन सकती है। कणों वाला फ़िल्टर इस गैस को नहीं हटाता।"
         : "An open wood or coal fire can release carbon monoxide. A particle filter cannot remove this gas."}</p>}
       <div className="source-links">
-        <a href="https://www.cdc.gov/carbon-monoxide/about/" target="_blank" rel="noopener noreferrer">{hindi ? "कार्बन मोनोऑक्साइड की सुरक्षा जानकारी" : "Carbon monoxide safety guidance"}</a>
+        <SourceLink href="https://www.cdc.gov/carbon-monoxide/about/">{hindi ? "कार्बन मोनोऑक्साइड की सुरक्षा जानकारी" : "Carbon monoxide safety guidance"}</SourceLink>
         <a href="tel:112">{hindi ? "भारत में आपात सहायता के लिए 112" : "Emergency assistance in India · 112"}</a>
       </div>
     </section>

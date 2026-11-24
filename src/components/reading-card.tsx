@@ -7,12 +7,14 @@ import { readingView } from "@/lib/readings";
 import { DELHI_REPLAY, replayDate } from "@/lib/replay";
 import { sourceHostname } from "@/lib/input-text";
 import { useDraftState, useReadingClock } from "./draft-provider";
+import { SourceLink } from "./source-link";
 
 export function ReadingCard() {
   const { t } = useLocale();
   const { draft, ready } = useDraftState();
-  const now = useReadingClock();
+  const now = useReadingClock(draft.selection);
   const reading = readingView(draft.selection, now);
+  const sourceHost = reading?.url ? sourceHostname(reading.url) : null;
   const replay = draft.selection === "replay";
   return (
     <section className="reading-panel" id="active-reading" tabIndex={-1} aria-labelledby="reading-heading">
@@ -24,8 +26,8 @@ export function ReadingCard() {
         <div className="reading-content" key={draft.selection === "replay" ? "replay" : draft.selection?.observation.observedAt}>
           <div className="reading-number"><strong>{reading.value}</strong><span>{reading.unit}</span></div>
           <h3 className="reading-title">{t(reading.title)}</h3>
-          {reading.kind === "historical" && <p className="reading-context">Example from the archive. Check CPCB for today’s reading.</p>}
-          {reading.kind === "stale" && <p className="reading-context">This reading is over six hours old. Check a newer reading before making decisions.</p>}
+          {reading.kind === "historical" && <p className="reading-context">{t("Example from the archive. Check CPCB for today’s reading.")}</p>}
+          {reading.kind === "stale" && <p className="reading-context">{t("This reading is over six hours old. Check a newer reading before making decisions.")}</p>}
           {reading.normalization && <p className="muted">{reading.normalization}</p>}
           <ul className="reading-meta">
             <li><MapPin size={15} aria-hidden /> {reading.place} · {t(reading.scope)}</li>
@@ -34,14 +36,14 @@ export function ReadingCard() {
           <div className="reading-source">
             <span>{t(reading.origin)}</span>
             <span>{t(reading.averaging)}</span>
-            {reading.url ? <a href={reading.url} target="_blank" rel="noopener noreferrer">{reading.source} ({sourceHostname(reading.url)})<ArrowUpRight size={14} aria-hidden /></a>
+            {reading.url && sourceHost ? <SourceLink href={reading.url}>{reading.source} ({sourceHost})<ArrowUpRight size={14} aria-hidden /></SourceLink>
               : <span>{reading.source}</span>}
           </div>
         </div>
       ) : (
         <div className="empty-reading">
           <h3>{t(ready ? "No current reading" : "Opening your workspace")}</h3>
-          <p>{ready ? "Look up your city or station on CPCB and enter the reading here. You can also start planning before you have one." : "Checking for a reading saved on this device."}</p>
+          <p>{t(ready ? "Look up your city or station on CPCB and enter the reading here. You can also start planning before you have one." : "Checking for a reading saved on this device.")}</p>
         </div>
       )}
     </section>
@@ -66,9 +68,9 @@ export function ReplayDetails() {
       <p className="archive-note">The Stage III invocation is superseded. A separate order scheduled additional measures from {replayDate(additionalMeasures.starts)} to {replayDate(additionalMeasures.ends)}.</p>
       <div className="source-links">
         {datedOrders.map(({ order, label }) => (
-          <a key={order.date} href={order.url} target="_blank" rel="noreferrer">{replayDate(order.date, "en-IN", "short")} {label} <ArrowUpRight size={14} aria-hidden /></a>
+          <SourceLink key={order.date} href={order.url}>{replayDate(order.date, "en-IN", "short")} {label} <ArrowUpRight size={14} aria-hidden /></SourceLink>
         ))}
-        <a href="https://caqm.nic.in/" target="_blank" rel="noreferrer">Current CAQM notices <ArrowUpRight size={14} aria-hidden /></a>
+        <SourceLink href="https://caqm.nic.in/">{t("Current CAQM notices")} <ArrowUpRight size={14} aria-hidden /></SourceLink>
       </div>
     </details>
   );

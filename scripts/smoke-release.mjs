@@ -14,6 +14,13 @@ function get(path, options = {}) {
   return fetch(url, { redirect: "error", signal: AbortSignal.timeout(5000), ...options });
 }
 
+function assertScriptPolicy(html, path) {
+  const [, policy] = html.match(/<head><meta http-equiv="Content-Security-Policy" content="([^"]+)">/) ?? [];
+  const hashes = inlineScriptHashes(html);
+  assert(hashes.length > 0, `${path} should contain inline bootstrap scripts.`);
+  assert.equal(policy, `script-src 'self' ${hashes.join(" ")}; script-src-attr 'none'`, `${path} must protect its bootstrap scripts.`);
+}
+
 let health;
 for (let attempt = 0; attempt < 30; attempt++) {
   health = await get("/api/health").catch(() => undefined);
@@ -25,13 +32,19 @@ assert(health?.ok, "Core health did not become ready.");
 assert.deepEqual(await health.json(), { status: "ok" });
 assert.match(health.headers.get("cache-control") ?? "", /no-store/);
 assert.match(health.headers.get("content-security-policy") ?? "", /default-src 'none'/);
+assert.equal(health.headers.get("strict-transport-security"), "max-age=63072000; includeSubDomains; preload");
 const rejected = await get("/api/health", { method: "POST" });
 assert.equal(rejected.status, 405);
 assert.equal(rejected.headers.get("allow"), "GET, HEAD, OPTIONS");
 
-const missing = await get("/missing-release-smoke-page");
-assert.equal(missing.status, 404);
-assert.match(await missing.text(), /<title>Page not found · AirDaybook<\/title>/);
+for (const path of ["/missing-release-smoke-page", "/plan/missing-release-smoke-page", "/404"]) {
+  const missing = await get(path);
+  assert.equal(missing.status, 404, path);
+  const html = await missing.text();
+  assert.match(html, /<title>Page not found · AirDaybook<\/title>/);
+  assertScriptPolicy(html, path);
+  assert.match(missing.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
+}
 const manifestResponse = await get("/manifest.webmanifest");
 assert(manifestResponse.ok, "The install manifest must be published.");
 const installManifest = await manifestResponse.json();
@@ -86,11 +99,7 @@ for (const [path, expected] of entries) {
         assert.match(image.headers.get("cache-control") ?? "", /immutable/);
       }
     }
-    const [policy] = html.match(/<meta http-equiv="Content-Security-Policy" content="script-src 'self'[^"]*">/) ?? [];
-    assert(policy, "The static document must carry its script policy into offline mode.");
-    const hashes = inlineScriptHashes(html);
-    assert(hashes.length > 0, "The release document should contain inline bootstrap scripts.");
-    for (const hash of hashes) assert(policy.includes(hash));
+    assertScriptPolicy(html, path);
     assert.match(response.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
     assert.equal(response.headers.get("referrer-policy"), "no-referrer");
   }

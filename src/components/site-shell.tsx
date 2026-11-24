@@ -6,6 +6,7 @@ import { SOURCES } from "@/lib/readings";
 import { AppLink } from "./app-link";
 import { OfflineStatus } from "./offline-status";
 import { useLocale } from "./locale";
+import { SourceLink } from "./source-link";
 
 export function SiteHeader() {
   const path = usePathname();
@@ -22,7 +23,7 @@ export function SiteHeader() {
           <AppLink href="/plan" aria-current={path === "/plan" ? "page" : undefined}>{t("My Plan")}</AppLink>
         </nav>
         <div className="header-options">
-          <a className="official-link" href={SOURCES.cpcb} target="_blank" rel="noreferrer">{t("CPCB readings")}</a>
+          <SourceLink className="official-link" href={SOURCES.cpcb}>{t("CPCB readings")}</SourceLink>
           <button className="button button-subtle locale-switch" type="button" lang={language === "hi" ? "en" : "hi"}
             onClick={() => changeLanguage(language === "hi" ? "en" : "hi")}>{language === "hi" ? "English" : "हिन्दी"}</button>
         </div>

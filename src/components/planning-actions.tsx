@@ -2,6 +2,7 @@ import { useLocale } from "./locale";
 import { CalendarClock, House, Map } from "lucide-react";
 import type { planningActions } from "@/lib/planning-actions";
 import { PlanLink } from "./plan-link";
+import { SourceLink } from "./source-link";
 
 const icons = { schedule: CalendarClock, home: House, travel: Map };
 
@@ -19,7 +20,7 @@ export function PlanningActions({ result }: { result: ReturnType<typeof planning
               <Icon size={19} aria-hidden />
               <div>
                 <h3>{title}</h3>
-                <p>{description} {source && <a href={source.url} target="_blank" rel="noreferrer">{source.label}</a>}
+                <p>{description} {source && <SourceLink href={source.url}>{t(source.label)}</SourceLink>}
                   {area === "schedule" && <PlanLink to="schedule">Edit your schedule</PlanLink>}
                   {area === "travel" && <PlanLink to="routes">Compare routes</PlanLink>}
                 </p>

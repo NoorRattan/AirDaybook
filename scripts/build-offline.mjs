@@ -20,18 +20,24 @@ async function integrity(file) {
   return "sha256-" + createHash("sha256").update(await readFile(file)).digest("base64");
 }
 
-async function prerenderedFile(path, name) {
-  const candidates = hasVercelOutput ? [
+function prerenderCandidates(name, tree = next) {
+  const adapterFiles = hasVercelOutput && tree === next ? [
     join(vercel, "functions", `${name}.prerender-fallback.html`),
-    join(vercel, "static", `${path}.html`),
     join(vercel, "static", `${name}.html`),
   ] : [];
-  candidates.push(join(next, "server", "app", `${name}.html`));
-  for (const file of candidates) {
-    const info = await stat(file).catch(() => null);
-    if (info?.isFile()) return file;
-  }
-  throw new Error(`Missing prerender for ${path}. Checked ${candidates.join(", ")}.`);
+  const router = name === "404" ? "pages" : "app";
+  return [...adapterFiles, join(tree, "server", router, `${name}.html`)];
+}
+
+async function existingFiles(candidates) {
+  const files = await Promise.all(candidates.map(async (file) => {
+    const info = await stat(file).catch((error) => {
+      if (error.code === "ENOENT" || error.code === "ENOTDIR") return null;
+      throw error;
+    });
+    return info?.isFile() ? file : null;
+  }));
+  return files.filter(Boolean);
 }
 
 async function secureDocument(file) {
@@ -44,16 +50,16 @@ async function secureDocument(file) {
 }
 
 const staticRoot = join(next, "static");
-const documents = await Promise.all(Object.entries(routes).map(async ([path, name]) => [path, await prerenderedFile(path, name)]));
-const secured = new Set(documents.map(([, file]) => file));
-for (const name of ["_not-found", "_global-error"]) {
-  const fallback = await prerenderedFile("/" + name, name).catch(() => null);
-  if (fallback) secured.add(fallback);
-}
-for (const name of [...Object.values(routes), "_not-found", "_global-error"]) {
-  const file = join(next, "standalone", next, "server", "app", `${name}.html`);
-  if (await stat(file).then((info) => info.isFile(), () => false)) secured.add(file);
-}
+const documents = await Promise.all(Object.entries(routes).map(async ([path, name]) => {
+  const candidates = prerenderCandidates(name);
+  const [file] = await existingFiles(candidates);
+  if (!file) throw new Error(`Missing prerender for ${path}. Checked ${candidates.join(", ")}.`);
+  return [path, file];
+}));
+// Next generates a Pages 404 from the App Router not-found page. Vercel can serve either copy.
+const secured = await existingFiles([...Object.values(routes), "404", "_not-found", "_global-error"].flatMap((name) => [
+  ...prerenderCandidates(name), ...prerenderCandidates(name, join(next, "standalone", next)),
+]));
 for (const file of secured) await secureDocument(file);
 const html = (await Promise.all(documents.map(([, file]) => readFile(file, "utf8")))).join("\n");
 const { polyfillFiles } = JSON.parse(await readFile(join(next, "build-manifest.json"), "utf8"));

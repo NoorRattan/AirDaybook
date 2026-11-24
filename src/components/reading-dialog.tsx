@@ -125,7 +125,7 @@ export function ReadingDialog({ dialogRef, initial, onSave }: {
           : <label>{t("Unit")}<select {...selectProps("unit", metric?.kind === "pm25" ? metric.unit : "ug_m3")}><option value="ug_m3">µg/m³</option><option value="mg_m3">mg/m³</option></select></label>}
         <label>{t("Reported value")}<input {...fieldProps("value")} type="number" min={0} step={kind === "aqi" ? 1 : "any"} defaultValue={metric?.value} required /></label>
         <label>{t("Averaging minutes (optional)")}<input {...fieldProps("averaging")} type="number" min={1} step={1} defaultValue={metric?.averagingMinutes ?? undefined} /></label>
-        {error && <p id="reading-entry-error" role="alert" className="form-error entry-wide">{error.message}</p>}
+        <p id="reading-entry-error" role="alert" className={error ? "form-error entry-wide" : "sr-only"}>{error?.message}</p>
         <div className="entry-wide form-actions">
           <button type="button" className="button button-subtle" onClick={() => dialogRef.current?.close()}>{t("Cancel")}</button>
           <button type="submit" className="button button-primary" disabled={saving}>{t("Save reading")}</button>

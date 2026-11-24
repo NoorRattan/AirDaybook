@@ -8,6 +8,7 @@ import { maxRoutineBlocks } from "@/lib/routine-intake";
 import type { readingView } from "@/lib/readings";
 import { useDraftActions, useDraftState } from "./draft-provider";
 import { CareHelp } from "./care-help";
+import { SourceLink } from "./source-link";
 
 const advisory = "https://ncdc.mohfw.gov.in/uploads/pdf/Enclosure%201.%20DO%20letter%20from%20Secretary%2C%20DoHFW%20to%20CS_AP%20Advisory_2025.pdf";
 const conditions = [
@@ -68,7 +69,8 @@ export function RoutinePlanner({ reading }: { reading: ReturnType<typeof reading
         ))}
       </fieldset>
       {reading?.kind === "historical" && <p className="muted">{t("The guidance below uses the historical replay.")}</p>}
-      <p>{result.guidance} <a className="routine-source" href={advisory} target="_blank" rel="noopener noreferrer">{t("NCDC guidance")}</a></p>
+      {reading?.kind === "display-only" && reading.origin === "City model estimate" && <p>{t("The city PM₂.₅ estimate shows pollution context. Activity suggestions use the bands from a recent Indian overall AQI reading.")}</p>}
+      <p>{result.guidance} <SourceLink className="routine-source" href={advisory}>{t("NCDC guidance")}</SourceLink></p>
       {result.high && routine.outdoorWork && <p>If outdoor work is essential, take breaks away from heavy traffic or dust where practical and follow workplace safety requirements.</p>}
       {routine.community && <p>Coordinate shared trips and choose indoor space for flexible gatherings where available.</p>}
       <form className="plan-form" onSubmit={addBlock}>
@@ -86,7 +88,7 @@ export function RoutinePlanner({ reading }: { reading: ReturnType<typeof reading
           </div>
           <button className="button button-primary" type="submit">{t("Add to routine")}</button>
         </fieldset>
-        {error && <p className="form-error" role="alert">{t(error)}</p>}
+        <p className={error ? "form-error" : "sr-only"} role="alert">{t(error)}</p>
       </form>
       <p role="status" className="form-notice">{t(notice)}</p>
       {result.blocks.length > 0 && (
@@ -123,8 +125,8 @@ export function IndoorToolkit({ solidFuel }: { solidFuel: boolean }) {
         <li><div><strong>{t("Reduce smoke at the source")}</strong><p>{t("Skip indoor incense, coils and smoking. Use an exhaust fan that vents outdoors when cooking, and avoid charring food.")}</p></div></li>
         <li><div><strong>{t("Check conditions before airing")}</strong><p>{t("Look up the current reading before opening windows for routine airing. Keep required cooking and appliance ventilation available.")}</p></div></li>
         <li><div><strong>{t("Use one room for particle filtration")}</strong><p>{t("Run a purifier sized for the room you use most. Follow the device’s filter maintenance instructions and avoid units that intentionally produce ozone.")}</p></div></li>
-        <li><div><strong>{t("Clean settled dust with a damp cloth or mop")}</strong><p>{t("Damp cleaning keeps settled particles from going back into the air.")}</p><a className="routine-source" href="https://www.epa.gov/emergencies-iaq/create-clean-room-protect-indoor-air-quality-during-wildfire" target="_blank" rel="noopener noreferrer">{t("EPA cleaner-air room guidance")}</a></div></li>
-        <li><div><strong>{t("Compare a low-cost filter")}</strong><p>{t("EPA publishes MERV 13 box-fan designs and electrical safety considerations. Use equipment rated for your local power supply.")}</p><a className="routine-source" href="https://www.epa.gov/emergencies-iaq/diy-air-cleaners" target="_blank" rel="noopener noreferrer">{t("EPA instructions and safety checks")}</a></div></li>
+        <li><div><strong>{t("Clean settled dust with a damp cloth or mop")}</strong><p>{t("Damp cleaning keeps settled particles from going back into the air.")}</p><SourceLink className="routine-source" href="https://www.epa.gov/emergencies-iaq/create-clean-room-protect-indoor-air-quality-during-wildfire">{t("EPA cleaner-air room guidance")}</SourceLink></div></li>
+        <li><div><strong>{t("Compare a low-cost filter")}</strong><p>{t("EPA publishes MERV 13 box-fan designs and electrical safety considerations. Use equipment rated for your local power supply.")}</p><SourceLink className="routine-source" href="https://www.epa.gov/emergencies-iaq/diy-air-cleaners">{t("EPA instructions and safety checks")}</SourceLink></div></li>
       </ul>
       <fieldset>
         <legend>{t("Calculate particle clean-air delivery")}</legend>
@@ -134,7 +136,7 @@ export function IndoorToolkit({ solidFuel }: { solidFuel: boolean }) {
           <label>{t("Target air changes per hour")}<input type="number" value={changes} min={1} max={20} onChange={(event) => setChanges(event.target.value)} /></label>
         </div>
         {cadr !== null && <p><strong>{cadr} m³/h</strong> {t("estimated particle CADR at your selected air-change target.")}</p>}
-        <a className="routine-source" href="https://www.epa.gov/indoor-air-quality-iaq/guide-air-cleaners-home" target="_blank" rel="noopener noreferrer">{t("EPA room sizing and filter guidance")}</a>
+        <SourceLink className="routine-source" href="https://www.epa.gov/indoor-air-quality-iaq/guide-air-cleaners-home">{t("EPA room sizing and filter guidance")}</SourceLink>
       </fieldset>
     </section>
   );

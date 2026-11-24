@@ -91,13 +91,14 @@ export function DraftProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useReadingClock() {
+export function useReadingClock(selection: Draft["selection"]) {
   const [now, setNow] = useState(0);
   useEffect(() => {
+    if (!selection || selection === "replay") return;
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [selection]);
 
   return now;
 }

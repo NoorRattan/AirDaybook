@@ -153,6 +153,14 @@ try {
   assert.doesNotMatch(shared, /School pickup|15:00/);
   await accessibility(page, "Open group note");
   await page.getByText("Available offline", { exact: true }).waitFor();
+  const removedOfflinePage = await page.evaluate(async () => {
+    const name = (await caches.keys()).find((name) => name.startsWith("airdaybook-shell-"));
+    return name ? (await caches.open(name)).delete("/plan") : false;
+  });
+  assert(removedOfflinePage, "The installed shell should contain My Plan");
+  await page.reload();
+  await page.getByRole("button", { name: "Retry offline download" }).click();
+  await page.getByText("Available offline", { exact: true }).waitFor();
   await context.setOffline(true);
   await page.reload();
   await page.getByText("10 min less outside", { exact: true }).waitFor();
@@ -201,6 +209,15 @@ try {
   await unsupported.getByRole("button", { name: "Rooftop", exact: true }).waitFor();
   assert.equal(await unsupported.locator("canvas").count(), 0);
   await unsupported.close();
+
+  const dataSaver = await browser.newPage();
+  observe(dataSaver);
+  await dataSaver.addInitScript(() => Object.defineProperty(navigator, "connection", { value: { saveData: true } }));
+  await dataSaver.goto(origin);
+  await sceneButton(dataSaver).click();
+  await dataSaver.getByText("Data Saver is on. Using the lightweight illustration.").waitFor();
+  assert.equal(await dataSaver.locator("canvas").count(), 0);
+  await dataSaver.close();
 
   const tabs = await browser.newContext({ viewport: { width: 320, height: 750 } });
   const journal = await tabs.newPage();
@@ -325,10 +342,15 @@ try {
   await bilingual.reload();
   await bilingual.getByRole("heading", { name: "हवा की गुणवत्ता और आपका दिन" }).waitFor();
   await bilingual.getByText("शहर का मॉडल अनुमान", { exact: true }).waitFor();
+  assert.equal(await bilingual.getByRole("link", { name: "CPCB के माप (नए टैब में खुलेगा)" }).getAttribute("target"), "_blank");
   await bilingual.waitForFunction(() => document.querySelector(".reading-actions button")?.disabled === false);
   await accessibility(bilingual, "Hindi at 320 px");
   assert(await bilingual.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await bilingual.getByRole("button", { name: "English" }).click();
+  await bilingual.getByRole("link", { name: "Open My Plan" }).click();
+  await plannerLink(bilingual, "Daily routine").click();
+  await bilingual.getByText(/Activity suggestions use the bands from a recent Indian overall AQI reading/).waitFor();
+  await bilingual.getByRole("link", { name: "Today", exact: true }).click();
   await bilingual.getByRole("button", { name: "Try historical replay" }).click();
   await bilingual.getByRole("link", { name: "Open My Plan" }).click();
   await plannerLink(bilingual, "Daily routine").click();
@@ -351,6 +373,7 @@ try {
   await bilingual.close();
 
   const missing = await browser.newPage();
+  observe(missing);
   const notFound = await missing.goto(`${origin}/unknown-page`);
   assert.equal(notFound.status(), 404);
   await missing.getByRole("heading", { name: "Page not found" }).waitFor();
@@ -359,7 +382,7 @@ try {
   await missing.close();
 
   assert.deepEqual(errors, []);
-  console.log("Browser checks passed for manual readings, keyboard focus, opened-panel axe scans, Metro estimates, Hindi clipboard, offline editing, cross-tab saves and clearing, AI fallback and confirmation, 404 recovery, and 3D fallbacks.");
+  console.log("Browser checks passed for readings, keyboard focus, axe, Metro estimates, Hindi, offline editing, cross-tab saves, AI confirmation, CSP-protected 404 recovery, and 3D and Data Saver fallbacks.");
 } finally {
   await browser.close();
 }

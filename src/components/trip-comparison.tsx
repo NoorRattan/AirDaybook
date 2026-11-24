@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale } from "./locale";
+import { SourceLink } from "./source-link";
 
 import { ArrowUpRight } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
@@ -27,29 +28,29 @@ function RouteFields({ name, trip, field }: { name: keyof typeof routeLabels; tr
   const { t } = useLocale();
   return (
     <fieldset className="trip-leg">
-      <legend>{routeLabels[name]}</legend>
-      <label>Main mode
+      <legend>{t(routeLabels[name])}</legend>
+      <label>{t("Main mode")}
         <select {...field(`${name}.mode`, trip?.mode)}>
           <option value="">{t("Select mode")}</option>
-          {Object.entries(modeLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+          {Object.entries(modeLabels).map(([value, label]) => <option value={value} key={value}>{t(label)}</option>)}
         </select>
       </label>
       <div className="time-inputs">
         {(Object.keys(timings) as (keyof typeof timings)[]).map((key) => (
-          <label key={key}>{timings[key]} (min)
+          <label key={key}>{t(timings[key])} ({t("min")})
             <input {...field(`${name}.${key}`, trip?.[key])} type="number" min={0} max={1440} step={1} inputMode="numeric" />
           </label>
         ))}
-        <label>Vehicle
+        <label>{t("Vehicle")}
           <select {...field(`${name}.vehicle`, trip?.vehicle)}>
             <option value="">{t("Unspecified")}</option>
-            {Object.entries(vehicleLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+            {Object.entries(vehicleLabels).map(([value, label]) => <option value={value} key={value}>{t(label)}</option>)}
           </select>
         </label>
-        <label>Traffic
+        <label>{t("Traffic")}
           <select {...field(`${name}.traffic`, trip?.traffic)}>
             <option value="">{t("Unspecified")}</option>
-            {Object.entries(trafficLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+            {Object.entries(trafficLabels).map(([value, label]) => <option value={value} key={value}>{t(label)}</option>)}
           </select>
         </label>
       </div>
@@ -87,8 +88,8 @@ function TravelResults({ comparison }: { comparison: TravelComparison }) {
           <caption>{t("Time door to door")}</caption>
           <thead><tr><th scope="col">{t("Minutes")}</th><th scope="col">{t("Current")}</th><th scope="col">{t("Alternative")}</th></tr></thead>
           <tbody>
-            <tr><th scope="row">Whole trip</th><td>{current.total ?? "—"}</td><td>{alternative.total ?? "—"}</td></tr>
-            <tr><th scope="row">Walk + outdoor wait</th><td>{current.outdoors ?? "—"}</td><td>{alternative.outdoors ?? "—"}</td></tr>
+            <tr><th scope="row">{t("Whole trip")}</th><td>{current.total ?? "—"}</td><td>{alternative.total ?? "—"}</td></tr>
+            <tr><th scope="row">{t("Walk + outdoor wait")}</th><td>{current.outdoors ?? "—"}</td><td>{alternative.outdoors ?? "—"}</td></tr>
           </tbody>
         </table>
         {timeDifference !== null && <p className="trip-difference">{timeDifference === 0 ? "Both routes take the same time." : `The alternative takes ${Math.abs(timeDifference)} min ${timeDifference < 0 ? "less" : "longer"}.`}</p>}
@@ -106,8 +107,8 @@ function TravelResults({ comparison }: { comparison: TravelComparison }) {
             </ul>
             <p className="comparison-note">Per passenger, one way, for {comparison.metroKm} km by Delhi Metro. Historical factors from TERI exclude feeder trips.</p>
             <div className="source-links">
-              <a href={metroSources.teri} target="_blank" rel="noopener noreferrer">TERI project summary <ArrowUpRight size={13} aria-hidden /></a>
-              <a href={metroSources.dmrc} target="_blank" rel="noopener noreferrer">DMRC CarbonLite <ArrowUpRight size={13} aria-hidden /></a>
+              <SourceLink href={metroSources.teri}>{t("TERI project summary")} <ArrowUpRight size={13} aria-hidden /></SourceLink>
+              <SourceLink href={metroSources.dmrc}>DMRC CarbonLite <ArrowUpRight size={13} aria-hidden /></SourceLink>
             </div>
           </>
         ) : <p className="comparison-note">Choose motorized road and Delhi Metro, select the average road baseline and enter the one-way rail distance to calculate savings.</p>}
@@ -271,7 +272,7 @@ export function TripComparison({ saved, ready, onSave }: {
             }} /> Use an average motorized road trip as the CO₂ baseline</label>
             <label>One-way Metro distance (km)<input {...field("metroKm", saved?.metroKm)} type="number" min={0} max={MAX_METRO_KM} step="any" inputMode="decimal" /></label>
           </div>
-          {error && <p id="route-error" role="alert" className="form-error">{error.message}</p>}
+          <p id="route-error" role="alert" className={error ? "form-error" : "sr-only"}>{error?.message}</p>
           <button className="button button-primary" type="submit">{t("Save and compare")} <ArrowUpRight size={16} aria-hidden /></button>
         </fieldset>
       </form>

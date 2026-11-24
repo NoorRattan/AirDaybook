@@ -38,7 +38,7 @@ svg { flex-shrink: 0; }
 
 .shell { width: min(calc(100% - 5rem), 76rem); margin-inline: auto; }
 .skip-link { position: fixed; z-index: 10; top: .6rem; left: 1rem; padding: .65rem 1rem; transform: translateY(-160%); background: var(--ink); color: var(--cream); }
-.skip-link:focus { transform: none; outline-color: var(--accent); }
+.skip-link:focus { transform: none; outline-color: var(--cream); outline-offset: -4px; }
 .site-header { border-top: 4px solid var(--accent); }
 .nav-inner {
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1rem;

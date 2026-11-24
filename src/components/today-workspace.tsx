@@ -88,7 +88,7 @@ export function TodayWorkspace() {
               <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={importReading} />
             </div>
             <p role="status" className="form-notice">{notice}</p>
-            {error && <p role="alert" className="form-error">{error} The selected reading is unchanged.</p>}
+            <p role="alert" className={error ? "form-error" : "sr-only"}>{error ? `${t(error)} ${t("The selected reading is unchanged.")}` : ""}</p>
             <CityReading ready={ready} beginLookup={() => {
               const lookup = ++readingAction.current;
               return (observation) => {

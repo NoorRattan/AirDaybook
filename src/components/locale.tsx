@@ -129,6 +129,22 @@ const hi: Record<string, string> = {
   "Target air changes per hour": "एक घंटे में हवा बदलने की लक्षित संख्या",
   "estimated particle CADR at your selected air-change target.": "आपके चुने हुए लक्ष्य के लिए कणों को छानकर साफ़ हवा देने की अनुमानित दर (CADR)।",
   "EPA room sizing and filter guidance": "कमरे और फ़िल्टर के आकार पर EPA की सलाह",
+  "(opens in a new tab)": "(नए टैब में खुलेगा)",
+  "Previously {value}": "पहले {value}",
+  "Example from the archive. Check CPCB for today’s reading.": "यह पुराने रिकॉर्ड का उदाहरण है। आज का माप CPCB पर देखें।",
+  "This reading is over six hours old. Check a newer reading before making decisions.": "यह माप छह घंटे से पुराना है। फ़ैसला करने से पहले कोई नया माप देखें।",
+  "Look up your city or station on CPCB and enter the reading here. You can also start planning before you have one.": "CPCB पर अपने शहर या निगरानी केंद्र का माप देखें और यहाँ दर्ज करें। आप माप दर्ज करने से पहले भी योजना बना सकते हैं।",
+  "Checking for a reading saved on this device.": "इस डिवाइस पर सहेजा हुआ माप ढूँढ रहे हैं।",
+  "Current CAQM notices": "CAQM की मौजूदा सूचनाएँ",
+  "TERI project summary": "TERI परियोजना का सारांश",
+  "The selected reading is unchanged.": "चुना हुआ माप वही है।",
+  "The city PM₂.₅ estimate shows pollution context. Activity suggestions use the bands from a recent Indian overall AQI reading.": "शहर का PM₂.₅ अनुमान प्रदूषण की जानकारी देता है। गतिविधियों के सुझाव हाल के समग्र भारतीय AQI की श्रेणियों पर आधारित हैं।",
+  Walking: "पैदल चलना", "All waiting": "कुल इंतज़ार", "Outside waiting": "बाहर का इंतज़ार", Riding: "वाहन में समय",
+  Open: "खुला", Enclosed: "बंद", Mixed: "मिश्रित", Light: "कम", Heavy: "भारी",
+  "Motorized road": "सड़क पर मोटर वाहन", "Delhi Metro": "दिल्ली मेट्रो", "Walk or cycle": "पैदल या साइकिल", Other: "अन्य",
+  "Two-wheeler": "दोपहिया", Carpool: "साझा कार", "City bus": "शहर की बस", "Electric bus": "इलेक्ट्रिक बस",
+  "Auto or rickshaw": "ऑटो या रिक्शा", "Electric car": "इलेक्ट्रिक कार", "Other metro or suburban rail": "अन्य मेट्रो या उपनगरीय ट्रेन", "No trip": "कोई यात्रा नहीं",
+  "Whole trip": "पूरी यात्रा", "Walk + outdoor wait": "पैदल चलना और बाहर का इंतज़ार",
 };
 
 type Language = "en" | "hi";

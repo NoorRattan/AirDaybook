@@ -28,7 +28,7 @@ export function PlanWorkspace() {
   const { t } = useLocale();
   const { draft, ready, persistent } = useDraftState();
   const { updateDraft } = useDraftActions();
-  const now = useReadingClock();
+  const now = useReadingClock(draft.selection);
   const [notice, setNotice] = useState("");
   const [editor, setEditor] = useState(0);
   const clearDialog = useRef<HTMLDialogElement>(null);

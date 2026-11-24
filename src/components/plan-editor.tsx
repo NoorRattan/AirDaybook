@@ -110,7 +110,7 @@ export function PlanEditor({ initial, ready, onSave }: { initial: Plan | null; r
               <label>{t("Revised wait (min)")}<input {...inputProps("revisedWait")} type="number" min={0} max={MAX_WAIT_MINUTES} step={1} /></label>
             </div>
           </fieldset>
-          {error && <p id="plan-error" role="alert" className="form-error">{error.error}</p>}
+          <p id="plan-error" role="alert" className={error ? "form-error" : "sr-only"}>{error?.error}</p>
           <button className="button button-primary" type="submit" disabled={!ready}>{t("Save plan")}</button>
         </form>
       </section>

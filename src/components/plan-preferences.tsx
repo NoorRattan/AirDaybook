@@ -238,7 +238,7 @@ export function PlanPreferences() {
                 <option value="false">{t("No")}</option>
               </select>
               {draft.previousPreferences && draft.previousPreferences[key] !== draft.preferences[key] &&
-                <span className="muted">Previously {preferenceLabel(draft.previousPreferences[key]).toLowerCase()}</span>}
+                <span className="muted">{t("Previously {value}").replace("{value}", t(preferenceLabel(draft.previousPreferences[key])).toLocaleLowerCase())}</span>}
             </label>
           ))}
         </div>
@@ -256,7 +256,7 @@ export function PlanPreferences() {
             </div>
             <p className={updateLength > maxUpdateLength ? "form-error" : "muted"} id="revision-length">{updateLength} / {maxUpdateLength} {t("characters")}</p>
             <p className="muted" id="revision-disclosure">{t(canUseAi ? "AI sends only your submitted text and the four preferences to Groq. Leave out names, addresses and medical details." : "Drafting on this device keeps your text in this browser.")}</p>
-            {(sensitive || invalidText) && <p className="form-error" role="alert" id="revision-privacy">{t(sensitive ? "Remove phone, email or ID details before sending." : "Remove invisible control characters before sending.")}</p>}
+            <p className={sensitive || invalidText ? "form-error" : "sr-only"} role="alert" id="revision-privacy">{sensitive || invalidText ? t(sensitive ? "Remove phone, email or ID details before sending." : "Remove invisible control characters before sending.") : ""}</p>
             {canUseAi && <button className="button button-primary" type="submit" disabled={!ready || pending || !validUpdate}>
               {t(pending ? "Checking the update…" : includeActivities ? "Suggest a routine draft" : "Suggest preference changes")}
             </button>}
