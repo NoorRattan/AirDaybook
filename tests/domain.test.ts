@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { communityNote } from "../src/lib/community-share";
-import { emptyDraft } from "../src/lib/draft";
+import { emptyDraft, hasSavedWorkspaceData } from "../src/lib/draft";
 import { mergeDraftFields } from "../src/lib/draft-merge";
 import { draftSchema, planSchema } from "../src/lib/draft-schema";
 import { parseObservation, type Observation } from "../src/lib/observation-schema";
@@ -150,6 +150,20 @@ test("merges changes from stale tabs without overwriting unrelated fields", () =
   assert.equal(merged.preferences.metroAvailable, true);
   assert.equal(merged.previousPreferences, saved.preferences);
   assert.deepEqual(draftSchema.parse({ version: 1, selection: null, plan: null }).preferences, emptyPreferences);
+});
+
+test("equivalent stale saves retain the newer schedule and routes", () => {
+  const previous = { ...emptyDraft, plan: pickup, travel: compare };
+  const saved = { ...previous, plan: { ...pickup, commitment: "Appointment" }, travel: { ...compare, metroKm: 9 } };
+  const next = { ...previous, plan: { ...pickup }, travel: structuredClone(compare) };
+  assert.deepEqual(mergeDraftFields(saved, previous, next), saved);
+});
+
+test("enables clearing current preferences even without an earlier preference snapshot", () => {
+  assert.equal(hasSavedWorkspaceData(emptyDraft), false);
+  for (const hasPurifier of [true, false]) {
+    assert.equal(hasSavedWorkspaceData({ ...emptyDraft, preferences: { ...emptyPreferences, hasPurifier } }), true);
+  }
 });
 
 test("compares routes and calculates the published 12 km Metro range only for eligible inputs", () => {

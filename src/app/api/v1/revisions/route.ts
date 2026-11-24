@@ -5,6 +5,7 @@ import { readBoundedJson } from "@/lib/server/bounded-json";
 import { interpretRevision } from "@/lib/server/groq-revisions";
 import { releaseId } from "@/lib/server/operations";
 import { reserveRevision } from "@/lib/server/quota";
+import { clientQuotaKey } from "@/lib/server/quota-identity";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -19,6 +20,7 @@ const errors = {
   provider_response_invalid: 502,
   ai_unavailable: 503,
   provider_timeout: 504,
+  client_aborted: 499,
 } as const;
 type ErrorCode = keyof typeof errors;
 type Failure = { retryAfter?: number; category?: string; upstreamStatus?: number };
@@ -58,18 +60,25 @@ export async function POST(request: Request) {
   const mediaType = request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
   if (mediaType !== "application/json") return fail("unsupported_media_type");
   const body = await readBoundedJson(request, bodyLimit, AbortSignal.any([request.signal, AbortSignal.timeout(4000)]));
+  if (request.signal.aborted) return fail("client_aborted");
   if (body.kind === "too_large") return fail("payload_too_large");
   if (body.kind !== "success") return fail("invalid_request");
   const input = revisionRequestSchema.safeParse(body.value);
-  if (!input.success || request.signal.aborted) return fail("invalid_request");
+  if (request.signal.aborted) return fail("client_aborted");
+  if (!input.success) return fail("invalid_request");
 
-  const admission = await reserveRevision(config, request.signal);
+  // Only Vercel's authenticated ingress supplies client identity. Local runs ignore headers.
+  const client = config.edgeIdentity ? clientQuotaKey(request.headers.get("x-vercel-forwarded-for"), config.key) : null;
+  if (config.edgeIdentity && !client) return fail("ai_unavailable", { category: "client_identity_unavailable" });
+  const admission = await reserveRevision(config, request.signal, client);
+  if (admission.result === "aborted") return fail("client_aborted");
   if (admission.result === "limited") return fail("usage_limited", { retryAfter: admission.retryAfter, category: admission.category });
   if (admission.result === "store_unavailable") return fail("ai_unavailable", { category: "quota_store_unavailable" });
 
   try {
     const interpretation = await interpretRevision(config, input.data, request.signal);
     if (interpretation.kind === "timeout") return fail("provider_timeout");
+    if (interpretation.kind === "client_aborted") return fail("client_aborted");
     if (interpretation.kind === "invalid") return fail("provider_response_invalid");
     if (interpretation.kind === "success") return reply(interpretation.result, 200, interpretation.result.outcome);
     if (interpretation.kind === "provider_http_error") {

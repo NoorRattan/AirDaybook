@@ -1,0 +1,6 @@
+.next/
+.feasibility/
+.runtime/
+public/sw.js
+next-env.d.ts
+package-lock.json

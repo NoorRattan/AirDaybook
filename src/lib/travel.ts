@@ -1,6 +1,7 @@
-export const travelModes = ["road", "metro", "walk-cycle", "other"] as const;
+export const travelModes = ["road", "metro", "walk-cycle", "other", "two-wheeler", "carpool", "bus", "electric-bus", "auto", "electric-car", "rail", "no-trip"] as const;
 export const vehicleTypes = ["open", "enclosed", "mixed"] as const;
 export const trafficLevels = ["light", "heavy", "mixed"] as const;
+export const MAX_METRO_KM = 250;
 
 export type Trip = {
   mode: (typeof travelModes)[number] | null;
@@ -37,9 +38,19 @@ export function tripTimes({ walking, waiting, outdoorWaiting, riding }: Trip) {
 }
 
 export function metroSavings({ current, alternative, averageRoadBaseline, metroKm }: TravelComparison) {
-  if (current.mode !== "road" || alternative.mode !== "metro" || !averageRoadBaseline || metroKm === null) return null;
+  if (current.mode !== "road" || alternative.mode !== "metro" || !averageRoadBaseline ||
+    metroKm === null || metroKm <= 0 || metroKm > MAX_METRO_KM) return null;
   return metroMethods.map((method) => ({
     ...method,
     kg: metroKm * (method.gramsPerKm / 1000),
   }));
+}
+
+export function passengerGrams(factor: string, distance: string, occupants: string) {
+  if (!factor.trim() || !distance.trim() || !occupants.trim()) return null;
+  const [gramsPerKm, km, riders] = [factor, distance, occupants].map(Number);
+  if (gramsPerKm < 0 || gramsPerKm > 10000 || km < 0 || km > 1000 ||
+    !Number.isFinite(gramsPerKm) || !Number.isFinite(km) ||
+    !Number.isInteger(riders) || riders < 1 || riders > 200) return null;
+  return gramsPerKm * km / riders;
 }

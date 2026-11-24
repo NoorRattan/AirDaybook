@@ -94,6 +94,7 @@ async function staticAsset(request, path) {
       const olderAsset = await caches.match(path, { cacheName: name });
       if (olderAsset) return olderAsset;
     }
+    return fetch(request, { credentials: "omit", mode: "same-origin", redirect: "error" });
   }
   return fetch(request);
 }

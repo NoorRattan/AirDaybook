@@ -1,12 +1,17 @@
 import type { Draft } from "./draft-schema";
 import { mergeDraftFields } from "./draft-merge";
-import { emptyPreferences } from "./preferences";
+import { emptyPreferences, preferenceKeys } from "./preferences";
 export type { Draft, Plan } from "./draft-schema";
 
 export const emptyDraft: Draft = {
   version: 1, selection: null, plan: null,
-  preferences: emptyPreferences, previousPreferences: null, travel: null,
+  preferences: emptyPreferences, previousPreferences: null, travel: null, routine: null,
 };
+
+export function hasSavedWorkspaceData(draft: Draft) {
+  return Boolean(draft.selection || draft.plan || draft.travel || draft.routine || draft.previousPreferences ||
+    preferenceKeys.some((key) => draft.preferences[key] !== null));
+}
 
 let opening: Promise<IDBDatabase> | undefined;
 function openStore() {
@@ -31,46 +36,56 @@ function openStore() {
 
 export async function readDraft() {
   const database = await openStore();
-  const [saved, travel] = await new Promise<[unknown, unknown]>((resolve, reject) => {
+  const [saved, travel, routine] = await new Promise<[unknown, unknown, unknown]>((resolve, reject) => {
     const transaction = database.transaction("workspace");
     const store = transaction.objectStore("workspace");
     const draftRequest = store.get("draft");
     const travelRequest = store.get("travel");
-    transaction.oncomplete = () => resolve([draftRequest.result, travelRequest.result]);
+    const routineRequest = store.get("routine");
+    transaction.oncomplete = () => resolve([draftRequest.result, travelRequest.result, routineRequest.result]);
     transaction.onabort = () => reject(transaction.error ?? new Error("Draft read interrupted."));
   });
   if (saved === undefined) return emptyDraft;
   const { draftSchema } = await import("./draft-schema");
   const result = draftSchema.safeParse(saved);
   if (!result.success) return emptyDraft;
-  if (travel === undefined) return { ...result.data, travel: null };
-  const { travelComparisonSchema } = await import("./travel-schema");
-  const routes = travelComparisonSchema.safeParse(travel);
-  return { ...result.data, travel: routes.success ? routes.data : null };
+  const routes = travel === undefined ? null : (await import("./travel-schema")).travelComparisonSchema.safeParse(travel);
+  const daily = routine === undefined ? null : (await import("./routine")).routineSchema.safeParse(routine);
+  return { ...result.data, travel: routes?.success ? routes.data : null, routine: daily?.success ? daily.data : null };
 }
 
 export async function writeDraft(previous: Draft, next: Draft) {
   const database = await openStore();
-  const { draftSchema } = await import("./draft-schema");
-  return new Promise<void>((resolve, reject) => {
+  const [{ draftSchema }, { travelComparisonSchema }, { routineSchema }] = await Promise.all([
+    import("./draft-schema"), import("./travel-schema"), import("./routine"),
+  ]);
+  return new Promise<Draft>((resolve, reject) => {
+    let merged = emptyDraft;
     const transaction = database.transaction("workspace", "readwrite");
-    transaction.oncomplete = () => resolve();
+    transaction.oncomplete = () => resolve(merged);
     transaction.onabort = () => reject(transaction.error ?? new Error("Draft write interrupted."));
     const store = transaction.objectStore("workspace");
     if (next === emptyDraft) {
       store.delete("draft");
       store.delete("travel");
+      store.delete("routine");
     } else {
-      const request = store.get("draft");
-      request.onsuccess = () => {
-        const parsed = draftSchema.safeParse(request.result);
-        const saved = parsed.success ? { ...parsed.data, travel: null } : emptyDraft;
-        const { travel, ...base } = mergeDraftFields(saved, previous, next);
+      const draftRequest = store.get("draft");
+      const travelRequest = store.get("travel");
+      const routineRequest = store.get("routine");
+      routineRequest.onsuccess = () => {
+        const parsed = draftSchema.safeParse(draftRequest.result);
+        const routes = travelComparisonSchema.safeParse(travelRequest.result);
+        const daily = routineSchema.safeParse(routineRequest.result);
+        const saved = parsed.success ? { ...parsed.data, travel: routes.success ? routes.data : null, routine: daily.success ? daily.data : null } : emptyDraft;
+        merged = mergeDraftFields(saved, previous, next);
+        const { travel, routine, ...base } = merged;
         // Older offline shells still validate the base record with a strict schema.
         store.put(base, "draft");
-        if (previous.travel === next.travel) return;
         if (travel) store.put(travel, "travel");
         else store.delete("travel");
+        if (routine) store.put(routine, "routine");
+        else store.delete("routine");
       };
     }
   });

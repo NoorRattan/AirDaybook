@@ -9,6 +9,8 @@ import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { examples, fixtureKey, providerDetail } from "./fixtures/groq-provider.mjs";
+import postgres from "postgres";
+import { randomUUID } from "node:crypto";
 
 const app = new URL("../.next/standalone/", import.meta.url);
 const providerFixture = new URL("./fixtures/groq-provider.mjs", import.meta.url);
@@ -128,8 +130,14 @@ test("enabled revisions validate requests and map provider responses", async (su
     await capability(release.get, true);
     await suite.test("rejects requests with incompatible metadata or payload fields", async () => {
       await expectError(await submit(release, examples.apply, { headers: { Origin: "https://example.invalid" } }), 403, "origin_denied");
+      await expectError(await submit(release, examples.apply, { headers: { "Sec-Fetch-Site": "cross-site" } }), 403, "origin_denied");
       await expectError(await submit(release, examples.apply, { headers: { "Content-Type": "text/plain" } }), 415, "unsupported_media_type");
       await expectError(await submit(release, examples.apply, { input: { scheduledTime: "15:00" } }), 400, "invalid_request");
+      await expectError(await submit(release, "Write to name@example.com."), 400, "invalid_request");
+      await expectError(await submit(release, examples.apply, { input: { revisionId: "invalid space" } }), 400, "invalid_request");
+      for (const body of ["", "{", Buffer.from([0xff])]) {
+        await expectError(await release.get(endpoint, { method: "POST", headers: { Origin: release.origin, "Content-Type": "application/json" }, body }), 400, "invalid_request");
+      }
       await expectError(await submit(release, "x".repeat(9 * 1024)), 413, "payload_too_large");
       const encoded = new TextEncoder();
       const body = new ReadableStream({
@@ -164,4 +172,85 @@ test("quota counts admitted requests and returns Retry-After", async () => {
     await admitted.body?.cancel();
     await expectError(await submit(release, examples.apply), 429, "usage_limited");
   });
+});
+
+test("assistant output is grounded in an allowed action, and provider failures stay bounded", async () => {
+  await withRelease({ AI_DAILY_LIMIT: "5", AI_BURST_PER_MINUTE: "5" }, async (release) => {
+    const recommendation = await submit(release, examples.assistant, { input: { assistant: true } });
+    assert.deepEqual(await recommendation.json(), { revisionId, outcome: "apply", changes: {}, tool: "routes" });
+    assert.deepEqual(await (await submit(release, examples.clarify)).json(), { revisionId, outcome: "clarify", changes: {} });
+    await expectError(await submit(release, examples.truncated), 502, "provider_response_invalid");
+    await expectError(await submit(release, examples.oversized), 502, "provider_response_invalid");
+    await expectError(await submit(release, examples.network), 503, "ai_unavailable");
+  });
+});
+
+test("SQLite concurrency, burst and daily counters survive alongside another process and across restarts", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "airdaybook-shared-"));
+  const settings = { AI_QUOTA_DB_PATH: join(temp, "quota.sqlite"), AI_DAILY_LIMIT: "2", AI_BURST_PER_MINUTE: "2" };
+  try {
+    await withRelease(settings, async (first) => {
+      await withRelease(settings, async (second) => {
+        const active = submit(first, examples.timeout);
+        await delay(260);
+        const limited = await submit(second, examples.apply);
+        assert.equal(limited.headers.get("Retry-After"), "1");
+        await expectError(limited, 429, "usage_limited");
+        await expectError(await active, 504, "provider_timeout");
+        const admitted = await submit(second, examples.apply);
+        assert.equal(admitted.status, 200);
+        await admitted.body?.cancel();
+      });
+    });
+    await withRelease(settings, async (replacement) => {
+      const limited = await submit(replacement, examples.apply);
+      assert(Number(limited.headers.get("Retry-After")) <= 60);
+      await expectError(limited, 429, "usage_limited");
+    });
+    await withRelease({ ...settings, AI_BURST_PER_MINUTE: "4" }, async (replacement) => {
+      await expectError(await submit(replacement, examples.apply), 429, "usage_limited");
+    });
+    await withRelease({ AI_QUOTA_DB_PATH: join(temp, "missing", "quota.sqlite") }, async (release) => {
+      await expectError(await submit(release, examples.apply), 503, "ai_unavailable");
+      assert.equal((await release.get("/api/health")).status, 200);
+    });
+  } finally {
+    for (const suffix of ["", "-shm", "-wal", "-journal"]) await rm(settings.AI_QUOTA_DB_PATH + suffix, { force: true });
+    await rmdir(temp);
+  }
+});
+
+const postgresUrl = process.env.AIRDAYBOOK_TEST_POSTGRES_URL;
+test("Postgres shares Vercel per-client and global allowances between app instances", { skip: !postgresUrl }, async () => {
+  const url = new URL(postgresUrl);
+  assert(["127.0.0.1", "localhost", "[::1]"].includes(url.hostname), "Use a local disposable Postgres service.");
+  const sql = postgres(url.href, { connect_timeout: 5 });
+  const database = "airdaybook_test_" + randomUUID().replaceAll("-", "");
+  await sql`CREATE DATABASE ${sql(database)}`;
+  url.pathname = "/" + database;
+  const settings = { VERCEL: "1", AI_QUOTA_DATABASE_URL: url.href, AI_DAILY_LIMIT: "3", AI_CLIENT_DAILY_LIMIT: "1" };
+  const edge = (ip) => ({ headers: { "x-vercel-forwarded-for": ip } });
+  try {
+    await withRelease(settings, async (first) => {
+      await withRelease(settings, async (second) => {
+        await expectError(await submit(first, examples.apply, { headers: { "x-forwarded-for": "192.0.2.1" } }), 503, "ai_unavailable");
+        assert.equal((await submit(first, examples.apply, edge("192.0.2.1"))).status, 200);
+        await expectError(await submit(second, examples.apply, edge("::ffff:192.0.2.1")), 429, "usage_limited");
+        assert.equal((await submit(second, examples.apply, edge("192.0.2.2"))).status, 200);
+        assert.equal((await submit(first, examples.apply, edge("192.0.2.3"))).status, 200);
+        await expectError(await submit(second, examples.apply, edge("192.0.2.4")), 429, "usage_limited");
+      });
+    });
+    await withRelease({ ...settings, AI_DAILY_LIMIT: "7", AI_CLIENT_DAILY_LIMIT: "3", AI_BURST_PER_MINUTE: "10" }, async (release) => {
+      assert.equal((await submit(release, examples.apply, edge("192.0.2.5"))).status, 200);
+      assert.equal((await submit(release, examples.apply, edge("192.0.2.5"))).status, 200);
+      const capped = await submit(release, examples.apply, edge("192.0.2.5"));
+      assert(Number(capped.headers.get("Retry-After")) <= 60);
+      await expectError(capped, 429, "usage_limited");
+      assert.equal((await submit(release, examples.apply, edge("192.0.2.6"))).status, 200);
+    });
+  } finally {
+    await sql`DROP DATABASE ${sql(database)} WITH (FORCE)`;
+    await sql.end();
+  }
 });

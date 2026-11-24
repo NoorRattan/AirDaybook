@@ -13,6 +13,18 @@ jobs:
   contracts:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: fixture-only
+        ports:
+          - 54328:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 8
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -22,9 +34,13 @@ jobs:
           node-version: 24.19.0
           package-manager-cache: false
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run lint
       - run: npm run test:coverage
       - run: npm run build
+      - run: npm run typecheck
       - run: npm run test:api
+        env:
+          AIRDAYBOOK_TEST_POSTGRES_URL: postgres://postgres:fixture-only@127.0.0.1:54328/postgres
   image:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -48,7 +64,7 @@ jobs:
           container=$(docker run --detach --publish 127.0.0.1:3000:3000 \
             --env AI_ENABLED=false --env "RELEASE_ID=$GITHUB_SHA" airdaybook:check)
           trap 'docker rm -f "$container" >/dev/null' EXIT
-          if ! node scripts/smoke-release.mjs http://127.0.0.1:3000 || ! npm run test:browser; then
+          if ! node scripts/smoke-release.mjs http://127.0.0.1:3000 || ! npm run test:browser || ! npm run test:lighthouse -- --release-gate; then
             docker logs "$container"
             exit 1
           fi

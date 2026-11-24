@@ -1,8 +1,10 @@
 "use client";
 
+import { useLocale } from "./locale";
+
 import { useEffect, useRef, useState } from "react";
 import { Download, RefreshCw, WifiOff } from "lucide-react";
-import { useDraft } from "./draft-provider";
+import { useDraftActions } from "./draft-provider";
 
 type Availability = "preparing" | "ready" | "unavailable";
 
@@ -25,7 +27,8 @@ function checkSavedFiles(worker: ServiceWorker, repair = false): Promise<boolean
 }
 
 export function OfflineStatus() {
-  const { finishDraftWrite } = useDraft();
+  const { t } = useLocale();
+  const { finishDraftWrite } = useDraftActions();
   const [availability, setAvailability] = useState<Availability>("preparing");
   const [online, setOnline] = useState(true);
   const [waiting, setWaiting] = useState(false);
@@ -141,7 +144,7 @@ export function OfflineStatus() {
     : availability === "preparing" ? "Preparing offline access" : "Offline access unavailable";
   return (
     <div className="offline-state">
-      <p role="status">{online ? <Download size={15} aria-hidden /> : <WifiOff size={15} aria-hidden />}{status}</p>
+      <p role="status">{online ? <Download size={15} aria-hidden /> : <WifiOff size={15} aria-hidden />}{t(status)}</p>
       {waiting && (
         <div className="offline-update">
           <p>A new version is ready.</p>

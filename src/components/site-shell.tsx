@@ -5,9 +5,11 @@ import { Waves } from "lucide-react";
 import { SOURCES } from "@/lib/readings";
 import { AppLink } from "./app-link";
 import { OfflineStatus } from "./offline-status";
+import { useLocale } from "./locale";
 
 export function SiteHeader() {
   const path = usePathname();
+  const { language, changeLanguage, t } = useLocale();
   return (
     <header className="site-header">
       <div className="shell nav-inner">
@@ -16,12 +18,14 @@ export function SiteHeader() {
           <span>AirDaybook</span>
         </AppLink>
         <nav className="main-nav" aria-label="Main navigation">
-          <AppLink href="/" aria-current={path === "/" ? "page" : undefined}>Today</AppLink>
-          <AppLink href="/plan" aria-current={path === "/plan" ? "page" : undefined}>My Plan</AppLink>
+          <AppLink href="/" aria-current={path === "/" ? "page" : undefined}>{t("Today")}</AppLink>
+          <AppLink href="/plan" aria-current={path === "/plan" ? "page" : undefined}>{t("My Plan")}</AppLink>
         </nav>
-        <a className="official-link" href={SOURCES.cpcb} target="_blank" rel="noreferrer">
-          CPCB readings
-        </a>
+        <div className="header-options">
+          <a className="official-link" href={SOURCES.cpcb} target="_blank" rel="noreferrer">{t("CPCB readings")}</a>
+          <button className="button button-subtle locale-switch" type="button" lang={language === "hi" ? "en" : "hi"}
+            onClick={() => changeLanguage(language === "hi" ? "en" : "hi")}>{language === "hi" ? "English" : "हिन्दी"}</button>
+        </div>
       </div>
     </header>
   );

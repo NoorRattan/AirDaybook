@@ -1,12 +1,18 @@
 "use client";
 
+import { useLocale } from "./locale";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Draft } from "@/lib/draft";
+import { containsContactDetails, safeMultilineText } from "@/lib/input-text";
 import { preferenceKeys, preferenceLabel, preferenceLabels, type PreferenceKey } from "@/lib/preferences";
 import type { RevisionResponse } from "@/lib/revision-schema";
-import { useDraft } from "./draft-provider";
+import { useDraftActions, useDraftState } from "./draft-provider";
+import { PlanLink } from "./plan-link";
 
 type Proposal = { base: Draft; revision: RevisionResponse };
+type Availability = "checking" | "enabled" | "disabled" | "retry";
+const maxUpdateLength = 500;
 
 const failureMessages: Record<string, string> = {
   invalid_request: "Check that your update has 1–500 characters.",
@@ -15,22 +21,55 @@ const failureMessages: Record<string, string> = {
   provider_timeout: "The suggestion timed out. Try again or use the preference controls.",
 };
 const unavailable = "AI suggestions are unavailable. You can still change preferences here.";
+const tools = {
+  routine: ["Plan your daily routine", "Compare activity options and keep your fixed times."],
+  indoor: ["Improve indoor air", "Compare smoke sources, ventilation and particle filtration."],
+  routes: ["Compare two routes", "Use travel time, outdoor waiting and costs you enter."],
+  community: ["Write a group note", "Start from the selected reading and review an English or Hindi draft."],
+} as const;
+const prompts = [
+  ["Indoor air", "We don’t have a purifier. What can we do about indoor air?"],
+  ["Travel", "Help me compare a carpool with Metro."],
+  ["Group note", "Help me draft a Hindi group note."],
+  ["Daily routine", "Help me move a flexible outdoor activity indoors."],
+] as const;
+
+function responseNotice(reply: Response, data: unknown) {
+  const apiCode = (data as { error?: { code?: unknown } } | null)?.error?.code;
+  const statusCode = reply.status === 429 ? "usage_limited"
+    : reply.status === 504 ? "provider_timeout"
+      : reply.status === 413 ? "payload_too_large" : null;
+  const code = typeof apiCode === "string" && Object.hasOwn(failureMessages, apiCode) ? apiCode : statusCode;
+  const message = code ? failureMessages[code] : unavailable;
+  const retryAfter = Number(reply.headers.get("Retry-After"));
+  return code === "usage_limited" && Number.isInteger(retryAfter) && retryAfter > 0 && retryAfter <= 86400
+    ? `${message} Try again in about ${Math.ceil(retryAfter / 60)} min.` : message;
+}
 
 export function PlanPreferences() {
-  const { draft, updateDraft, ready } = useDraft();
+  const { t } = useLocale();
+  const { draft, ready } = useDraftState();
+  const { updateDraft } = useDraftActions();
   const [text, setText] = useState("");
   const [online, setOnline] = useState(true);
-  const [available, setAvailable] = useState<boolean | null>(null);
+  const [availability, setAvailability] = useState<Availability>("checking");
+  const [attempt, setAttempt] = useState(0);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState("");
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const request = useRef<AbortController | null>(null);
   const visibleProposal = proposal?.base === draft ? proposal : null;
+  const updateLength = Array.from(text.trim()).length;
+  const sensitive = containsContactDetails(text);
+  const invalidText = !safeMultilineText(text);
 
   useEffect(() => {
     const updateConnectivity = () => {
       setOnline(navigator.onLine);
-      if (!navigator.onLine) request.current?.abort();
+      if (!navigator.onLine) {
+        setAvailability("checking");
+        request.current?.abort();
+      }
     };
     updateConnectivity();
     window.addEventListener("online", updateConnectivity);
@@ -46,14 +85,17 @@ export function PlanPreferences() {
   useEffect(() => {
     if (!online || !navigator.onLine) return;
     const controller = new AbortController();
-    setAvailable(null);
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]);
     fetch("/api/v1/revisions", { signal, cache: "no-store" })
-      .then(async (response) => response.ok && (await response.json())?.available === true)
-      .then((enabled) => { if (!controller.signal.aborted) setAvailable(enabled); })
-      .catch(() => { if (!controller.signal.aborted) setAvailable(false); });
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (!response.ok || typeof data?.available !== "boolean") return "retry";
+        return data.available ? "enabled" : "disabled";
+      })
+      .then((status) => { if (!controller.signal.aborted) setAvailability(status); })
+      .catch(() => { if (!controller.signal.aborted) setAvailability("retry"); });
     return () => controller.abort();
-  }, [online]);
+  }, [online, attempt]);
 
   function setPreference(key: PreferenceKey, value: boolean | null) {
     setProposal(null);
@@ -66,9 +108,9 @@ export function PlanPreferences() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!ready || request.current || !online || !available) return;
+    if (!ready || request.current || !online || availability !== "enabled") return;
     const update = text.trim();
-    if (!update || Array.from(update).length > 500) {
+    if (!updateLength || updateLength > maxUpdateLength || sensitive || invalidText) {
       setNotice(failureMessages.invalid_request);
       return;
     }
@@ -83,19 +125,14 @@ export function PlanPreferences() {
       const reply = await fetch("/api/v1/revisions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ revisionId, text: update, preferences: draft.preferences }),
+        body: JSON.stringify({ revisionId, text: update, preferences: draft.preferences, assistant: true }),
         cache: "no-store",
-        signal: controller.signal,
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]),
       });
-      const data: unknown = await reply.json();
+      const data: unknown = await reply.json().catch(() => null);
       if (controller.signal.aborted) return;
       if (!reply.ok) {
-        const code = (data as { error?: { code?: unknown } } | null)?.error?.code;
-        const retryAfter = Number(reply.headers.get("Retry-After"));
-        const message = typeof code === "string" && Object.hasOwn(failureMessages, code)
-          ? failureMessages[code] : unavailable;
-        setNotice(code === "usage_limited" && Number.isInteger(retryAfter) && retryAfter > 0 && retryAfter <= 86400
-          ? `${message} Try again in about ${Math.ceil(retryAfter / 60)} min.` : message);
+        setNotice(responseNotice(reply, data));
         return;
       }
       const { revisionResponseSchema } = await import("@/lib/revision-schema");
@@ -114,17 +151,16 @@ export function PlanPreferences() {
     } catch {
       if (!controller.signal.aborted) setNotice(unavailable);
     } finally {
-      if (request.current === controller) request.current = null;
-      setPending(false);
+      if (request.current === controller) {
+        request.current = null;
+        setPending(false);
+      }
     }
   }
 
-  async function apply() {
+  function apply() {
     if (!visibleProposal) return;
-    const { revisionResponseSchema, hasEffectivePreferenceChanges } = await import("@/lib/revision-schema");
-    const parsed = revisionResponseSchema.safeParse(visibleProposal.revision);
-    if (!parsed.success || !hasEffectivePreferenceChanges(parsed.data.changes, draft.preferences)) return;
-    const changes = parsed.data.changes;
+    const { changes } = visibleProposal.revision;
     updateDraft((current) => current !== visibleProposal.base ? current : {
       ...current, previousPreferences: current.preferences,
       preferences: { ...current.preferences, ...changes },
@@ -133,6 +169,12 @@ export function PlanPreferences() {
     setNotice("Preferences updated.");
   }
 
+  let status = notice;
+  if (!online) status = "AI suggestions require an internet connection.";
+  else if (availability === "checking") status = "Checking AI availability…";
+  else if (availability !== "enabled") status = unavailable;
+  else if (pending) status = "Checking the update…";
+
   return (
     <section className="preferences-workbench" aria-labelledby="preferences-title">
       <h2 className="sr-only" id="preferences-title">Plan preferences</h2>
@@ -140,14 +182,14 @@ export function PlanPreferences() {
         <div className="preference-fields">
           {preferenceKeys.map((key) => (
             <label key={key}>
-              {preferenceLabels[key]}
+              {t(preferenceLabels[key])}
               <select
                 value={String(draft.preferences[key])} disabled={!ready}
                 onChange={(event) => setPreference(key, event.target.value === "null" ? null : event.target.value === "true")}
               >
-                <option value="null">Not set</option>
-                <option value="true">Yes</option>
-                <option value="false">No</option>
+                <option value="null">{t("Not set")}</option>
+                <option value="true">{t("Yes")}</option>
+                <option value="false">{t("No")}</option>
               </select>
               {draft.previousPreferences && draft.previousPreferences[key] !== draft.preferences[key] &&
                 <span className="muted">Previously {preferenceLabel(draft.previousPreferences[key]).toLowerCase()}</span>}
@@ -155,29 +197,41 @@ export function PlanPreferences() {
           ))}
         </div>
         <div className="preference-suggestions">
-          {online && available === true && <form onSubmit={submit} className="revision-form">
-            <label htmlFor="plan-update">What changed?</label>
-            <textarea id="plan-update" rows={3} maxLength={1000} value={text} onChange={(event) => setText(event.target.value)} aria-describedby="revision-disclosure" placeholder="We don’t have a purifier or Metro access." />
+          {online && availability === "enabled" && <form onSubmit={submit} className="revision-form" aria-busy={pending}>
+            <label htmlFor="plan-update">{t("What changed?")}</label>
+            <textarea id="plan-update" rows={3} maxLength={1000} value={text} onChange={(event) => setText(event.target.value)} aria-invalid={updateLength > maxUpdateLength || sensitive || invalidText || undefined} aria-describedby={`revision-disclosure revision-length${sensitive || invalidText ? " revision-privacy" : ""}`} placeholder={t("We don’t have a purifier or Metro access.")} />
+            <div className="routine-flags">
+              {prompts.map(([label, prompt]) => <button type="button" key={label} className="button button-subtle" onClick={() => setText(t(prompt))}>{t(label)}</button>)}
+            </div>
+            <p className={updateLength > maxUpdateLength ? "form-error" : "muted"} id="revision-length">{updateLength} / {maxUpdateLength} characters</p>
             <p className="muted" id="revision-disclosure">Your submitted text and these four preferences go to Groq. Leave out names, addresses and medical details.</p>
-            <button className="button button-primary" type="submit" disabled={!ready || !online || pending || !text.trim()}>
-              {pending ? "Checking the update…" : "Suggest preference changes"}
+            {(sensitive || invalidText) && <p className="form-error" role="alert" id="revision-privacy">{sensitive ? "Remove phone, email or ID details before sending." : "Remove invisible control characters before sending."}</p>}
+            <button className="button button-primary" type="submit" disabled={!ready || pending || !updateLength || updateLength > maxUpdateLength || sensitive || invalidText}>
+              {t(pending ? "Checking the update…" : "Suggest preference changes")}
             </button>
           </form>}
-          <p role="status" className="form-notice">{!online ? "AI suggestions require an internet connection." : available === false ? unavailable : available === null ? "Checking AI availability…" : notice}</p>
-          {online && available === true && visibleProposal && (
-            <div className="revision-preview" aria-label="Suggested changes">
-              <h3>Review the proposed changes</h3>
+          <p className="form-notice">{t(status)}</p>
+          <p className="sr-only" role="status">{notice ? t(notice) : ""}</p>
+          {online && availability === "retry" && <button type="button" className="button button-subtle" onClick={() => {
+            setAvailability("checking");
+            setAttempt((value) => value + 1);
+          }}>Retry AI availability</button>}
+          {online && availability === "enabled" && visibleProposal && (
+            <section className="revision-preview" aria-labelledby="revision-preview">
+              <h3 id="revision-preview">{t("Review the proposed changes")}</h3>
               <ul>
                 {preferenceKeys.map((key) => {
                   const value = visibleProposal.revision.changes[key];
-                  return value === undefined ? null : <li key={key}><span>{preferenceLabels[key]}</span><strong>{preferenceLabel(value)}</strong></li>;
+                  return value === undefined ? null : <li key={key}><span>{t(preferenceLabels[key])}</span><strong>{t(preferenceLabel(value))}</strong></li>;
                 })}
               </ul>
+              {visibleProposal.revision.tool && <p>{t(tools[visibleProposal.revision.tool][1])}</p>}
               <div className="form-actions">
-                <button type="button" className="button button-subtle" onClick={() => { setProposal(null); setNotice("Suggestion discarded."); }}>Discard</button>
-                <button type="button" className="button button-primary" onClick={() => void apply()}>Apply changes</button>
+                <button type="button" className="button button-subtle" onClick={() => { setProposal(null); setNotice("Suggestion discarded."); }}>{t("Discard")}</button>
+                {Object.keys(visibleProposal.revision.changes).length > 0 && <button type="button" className="button button-primary" onClick={apply}>{t("Apply changes")}</button>}
+                {visibleProposal.revision.tool && <PlanLink className="button button-subtle" to={visibleProposal.revision.tool}>{t(tools[visibleProposal.revision.tool][0])}</PlanLink>}
               </div>
-            </div>
+            </section>
           )}
         </div>
       </div>

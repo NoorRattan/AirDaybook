@@ -1,5 +1,7 @@
 import type { ReadingSelection } from "./observation-schema";
 import { DELHI_REPLAY, replayDate } from "./replay";
+import { sourceHostname } from "./input-text";
+import { estimateSource } from "./city-estimates";
 export type { Observation, ReadingSelection } from "./observation-schema";
 
 export const SOURCES = {
@@ -58,8 +60,9 @@ export function readingView(selection: ReadingSelection, now: number) {
     state: stale ? "Stale reading" : eligibleScale ? "User-supplied reading" : "Display only",
     place: location.label, band, scope: location.scope === "city" ? "City reading" : "Station reading",
     time: observationTime(observedAt),
-    source: source.label, url: source.url,
-    origin: selection.kind === "manual" ? "Manual entry" : "User-imported JSON",
+    source: source.label, url: source.url && sourceHostname(source.url) ? source.url : undefined,
+    origin: source.label === estimateSource.label && source.url === estimateSource.url ? "City model estimate" :
+      selection.kind === "manual" ? "Manual entry" : "User-imported JSON",
     averaging: metric.averagingMinutes === null ? "Averaging window unavailable" : `${metric.averagingMinutes} min averaging window`,
     normalization: metric.kind === "pm25" && metric.unit === "mg_m3"
       ? `${new Intl.NumberFormat("en-IN", { maximumSignificantDigits: 8 }).format(metric.value * 1000)} µg/m³ normalized` : null,

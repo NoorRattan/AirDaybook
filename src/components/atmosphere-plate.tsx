@@ -5,9 +5,9 @@ import { Component, useCallback, useEffect, useRef, useState, type ComponentType
 import type { AtmosphereProps, Viewpoint } from "./atmosphere-scene";
 
 const viewpoints = [
-  { id: "street", label: "Street", description: "Look at the buildings along the tracks." },
-  { id: "roof", label: "Rooftop", description: "Follow the raised Metro line across the neighbourhood." },
-  { id: "sky", label: "Skyline", description: "Look across the rooftops into the haze." },
+  { id: "street", label: "Street", description: "A pickup can stay at the same time while the place you wait changes. Compare your outdoor waiting minutes in My Plan." },
+  { id: "roof", label: "Rooftop", description: "Follow the Metro line through the neighbourhood. Count the walk and wait at both ends when you compare it with a road trip." },
+  { id: "sky", label: "Skyline", description: "Use a dated city or station reading to check air quality. The haze in this illustration stays the same for every reading." },
 ] as const;
 
 type Mode = "still" | "loading" | "3d" | "photo";
@@ -25,6 +25,10 @@ export function AtmospherePlate() {
   const [paused, setPaused] = useState(false);
   const [viewpoint, setViewpoint] = useState<Viewpoint>("roof");
   const [message, setMessage] = useState("");
+  const [inView, setInView] = useState(true);
+  const [tabVisible, setTabVisible] = useState(true);
+  const frame = useRef<HTMLDivElement>(null);
+  const active = mode === "loading" || (inView && tabVisible);
   const request = useRef(0);
   const pointer = useRef({ x: 0, y: 0 });
   const redraw = useRef<(() => void) | null>(null);
@@ -48,6 +52,19 @@ export function AtmospherePlate() {
     const timer = window.setTimeout(graphicsFailed, 8000);
     return () => window.clearTimeout(timer);
   }, [mode, graphicsFailed]);
+
+  useEffect(() => {
+    if (!Scene || !frame.current) return;
+    const visibility = () => setTabVisible(!document.hidden);
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting));
+    observer.observe(frame.current);
+    document.addEventListener("visibilitychange", visibility);
+    visibility();
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", visibility);
+    };
+  }, [Scene]);
 
   useEffect(() => {
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -91,17 +108,19 @@ export function AtmospherePlate() {
   const exploring = mode !== "still";
   const renderScene = (mode === "loading" || mode === "3d") && Scene;
   return (
-    <figure className="atmosphere-plate" aria-label="Delhi neighbourhood illustration">
-      <div className="plate-window" data-view={mode === "photo" ? viewpoint : undefined} onPointerMove={(event) => {
-        if (mode !== "3d" || paused || event.pointerType !== "mouse") return;
+    <figure className="atmosphere-plate" aria-labelledby="atmosphere-caption">
+      <div ref={frame} className="plate-window" data-view={mode === "photo" ? viewpoint : undefined} onPointerMove={(event) => {
+        if (mode !== "3d" || paused || !active || event.pointerType !== "mouse") return;
         const box = event.currentTarget.getBoundingClientRect();
         pointer.current = { x: (event.clientX - box.left) / box.width - 0.5, y: (event.clientY - box.top) / box.height - 0.5 };
         redraw.current?.();
       }} onPointerLeave={() => {
         pointer.current = { x: 0, y: 0 };
-        if (mode === "3d" && !paused) redraw.current?.();
+        if (mode === "3d" && !paused && active) redraw.current?.();
       }}>
         <picture>
+          <source type="image/avif" media="(max-width: 700px)" srcSet="/delhi-metro-dawn-small.avif" />
+          <source type="image/avif" srcSet="/delhi-metro-dawn.avif" />
           <source media="(max-width: 700px)" srcSet="/delhi-metro-dawn-small.webp" />
           <img src="/delhi-metro-dawn.webp" className="plate-image"
             alt="Delhi rooftops and an elevated Metro train under winter haze."
@@ -110,14 +129,14 @@ export function AtmospherePlate() {
         {renderScene && (
           <div aria-hidden className={mode === "3d" ? "plate-scene is-ready" : "plate-scene"}>
             <GraphicsBoundary onError={graphicsFailed}>
-              <Scene viewpoint={viewpoint} paused={paused} pointer={pointer} redraw={redraw} onPaint={painted} onUnavailable={graphicsFailed} />
+              <Scene viewpoint={viewpoint} paused={paused} active={active} pointer={pointer} redraw={redraw} onPaint={painted} onUnavailable={graphicsFailed} />
             </GraphicsBoundary>
           </div>
         )}
       </div>
       <figcaption>
         <div>
-          <strong>Delhi in winter</strong>
+          <strong id="atmosphere-caption">Delhi in winter</strong>
           <p>Illustration of the neighbourhood</p>
         </div>
         <button className="button button-plate" type="button" ref={switchButton} onClick={exploring ? close : explore}>

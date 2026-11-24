@@ -1,4 +1,5 @@
 import type { ReadingSelection } from "./readings";
+import { safeLabel } from "./input-text";
 
 export const MAX_WAIT_MINUTES = 1440;
 export const MAX_COMMITMENT_LENGTH = 100;
@@ -35,6 +36,7 @@ export function parsePlan(fields: Record<keyof Plan, string>): { plan: Plan } | 
   if (!commitment || commitment.length > MAX_COMMITMENT_LENGTH) {
     return { field: "commitment", error: `Enter a commitment of 1–${MAX_COMMITMENT_LENGTH} characters.` };
   }
+  if (!safeLabel(fields.commitment)) return { field: "commitment", error: "Remove invisible control characters from the commitment." };
   if (!PLAN_TIME.test(fields.time)) return { field: "time", error: "Enter a fixed time." };
   const previous = parseWait(fields.previousWait);
   const revised = parseWait(fields.revisedWait);

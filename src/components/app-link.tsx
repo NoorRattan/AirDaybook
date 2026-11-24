@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import type { ComponentProps } from "react";
-import { useDraft } from "./draft-provider";
+import { useDraftActions } from "./draft-provider";
 
 type AppLinkProps = Omit<ComponentProps<typeof Link>, "href" | "onNavigate" | "prefetch"> & {
   href: "/" | "/plan";
 };
 
 export function AppLink({ href, ...props }: AppLinkProps) {
-  const { finishDraftWrite } = useDraft();
+  const { finishDraftWrite } = useDraftActions();
   return (
     <Link
       {...props}

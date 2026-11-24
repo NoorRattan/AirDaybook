@@ -1,5 +1,6 @@
 import { isStaleObservation, observationTime, readingView, SOURCES, type ReadingSelection } from "./readings";
 import { DELHI_REPLAY, replayDate } from "./replay";
+import { metroSavings, type TravelComparison } from "./travel";
 
 const { invocation, revocation, additionalMeasures } = DELHI_REPLAY;
 const orders = [invocation.url, revocation.url, additionalMeasures.url].join("\n");
@@ -53,13 +54,15 @@ const shareCopy = {
 
 export type ShareLanguage = keyof typeof shareCopy;
 
-export function communityNote({ selection, now, language, context, action, includeLabels }: {
+export function communityNote({ selection, now, language, context, action, includeLabels, travel, travelers }: {
   selection: ReadingSelection;
   now: number;
   language: ShareLanguage;
   context: string;
   action: string;
   includeLabels: boolean;
+  travel?: TravelComparison | null;
+  travelers?: number;
 }) {
   const copy = shareCopy[language];
   const sections: string[] = [copy.title];
@@ -72,7 +75,8 @@ export function communityNote({ selection, now, language, context, action, inclu
     const { location, observedAt, metric } = selection.observation;
     const scope = location.scope === "city" ? copy.city : copy.station;
     const datedStatus = [
-      selection.kind === "manual" ? copy.manual : copy.imported,
+      reading.origin === "City model estimate" ? (language === "hi" ? "CAMS मॉडल अनुमान" : reading.origin) :
+        selection.kind === "manual" ? copy.manual : copy.imported,
       ...(isStaleObservation(observedAt, now) ? [copy.stale] : []),
     ];
     const measurement = metric.kind === "aqi"
@@ -91,6 +95,13 @@ export function communityNote({ selection, now, language, context, action, inclu
   }
 
   if (action.trim()) sections.push(`${copy.action}: ${action.trim()}`);
+  const metro = travel && metroSavings(travel);
+  if (travel && metro && travelers && Number.isInteger(travelers) && travelers >= 1 && travelers <= 1000) {
+    const range = metro.map(({ kg }) => (kg * travelers).toFixed(2)).join("–");
+    sections.push(language === "hi"
+      ? `अगर ${travelers} यात्री सड़क की औसत मोटर यात्रा की जगह ${travel.metroKm} किमी मेट्रो लें, तो एक तरफ़ की यात्रा में अनुमानित CO₂ बचत ${range} किग्रा है। स्टेशन तक आने-जाने की यात्राएँ शामिल नहीं हैं।`
+      : `If ${travelers} people each take ${travel.metroKm} km by Delhi Metro instead of an average motorized road trip, the estimated one-way CO₂ saving is ${range} kg, using two TERI methods. Feeder trips are excluded.`);
+  }
   sections.push(`${copy.check}\n${SOURCES.cpcb}`);
   return sections.join("\n\n");
 }

@@ -6,6 +6,11 @@ export const examples = Object.freeze({
   malformed: "Return the fixture with an invalid provider response.",
   unavailable: "Return the fixture with a provider service error.",
   timeout: "Return the fixture with an unfinished provider response.",
+  assistant: "मेट्रो और कारपूल की तुलना करें।",
+  clarify: "I might have forgotten an option.",
+  truncated: "End the fixture before completing its response.",
+  oversized: "Return more than the provider response budget.",
+  network: "Simulate an upstream connection failure.",
 });
 export const providerDetail = "fixture-provider-detail";
 
@@ -31,6 +36,8 @@ if (process.env.AIRDAYBOOK_TEST_PROVIDER === "1") {
 
     if (submitted.text === examples.unavailable) return new Response(providerDetail, { status: 429 });
     if (submitted.text === examples.timeout) return new Response(new ReadableStream());
+    if (submitted.text === examples.network) throw new TypeError("Fixture network unavailable");
+    if (submitted.text === examples.oversized) return new Response(" ".repeat(33 * 1024));
     const result = {
       outcome: "apply",
       preferences: {
@@ -39,7 +46,14 @@ if (process.env.AIRDAYBOOK_TEST_PROVIDER === "1") {
       },
     };
     if (submitted.text === examples.malformed) result.extra = providerDetail;
-    else assert.equal(submitted.text, examples.apply, "Unexpected provider fixture input.");
-    return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(result) } }] });
+    else if (submitted.text === examples.assistant) {
+      assert(payload.response_format.json_schema.schema.required.includes("tool"));
+      result.tool = "routes";
+      result.preferences.hasPurifier = "unchanged";
+    } else if (submitted.text === examples.clarify) {
+      result.outcome = "clarify";
+      result.preferences.hasPurifier = "unchanged";
+    } else if (submitted.text !== examples.truncated) assert.equal(submitted.text, examples.apply, "Unexpected provider fixture input.");
+    return Response.json({ choices: [{ finish_reason: submitted.text === examples.truncated ? "length" : "stop", message: { content: JSON.stringify(result) } }] });
   };
 }

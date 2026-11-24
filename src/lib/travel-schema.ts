@@ -1,24 +1,24 @@
-import { z } from "zod";
+import { z } from "zod/v4-mini";
 import { trafficLevels, travelModes, vehicleTypes } from "./travel";
 
-const minutes = z.number().int().min(0).max(1440).nullable();
+const minutes = z.nullable(z.number().check(z.int(), z.minimum(0), z.maximum(1440)));
 
 const tripSchema = z.strictObject({
-  mode: z.enum(travelModes).nullable(),
-  vehicle: z.enum(vehicleTypes).nullable(),
-  traffic: z.enum(trafficLevels).nullable(),
+  mode: z.nullable(z.enum(travelModes)),
+  vehicle: z.nullable(z.enum(vehicleTypes)),
+  traffic: z.nullable(z.enum(trafficLevels)),
   walking: minutes,
   waiting: minutes,
   outdoorWaiting: minutes,
   riding: minutes,
-}).refine(({ outdoorWaiting, waiting }) => outdoorWaiting === null || waiting === null || outdoorWaiting <= waiting, {
+}).check(z.refine(({ outdoorWaiting, waiting }) => outdoorWaiting === null || waiting === null || outdoorWaiting <= waiting, {
   path: ["outdoorWaiting"],
   message: "Outdoor waiting must fit within all waiting time.",
-});
+}));
 
 export const travelComparisonSchema = z.strictObject({
   current: tripSchema,
   alternative: tripSchema,
   averageRoadBaseline: z.boolean(),
-  metroKm: z.number().positive("Enter a distance greater than zero.").nullable(),
+  metroKm: z.nullable(z.number().check(z.positive("Enter a distance greater than zero."))),
 });

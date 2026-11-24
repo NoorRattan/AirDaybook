@@ -7,7 +7,7 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY src ./src
 COPY scripts ./scripts
 COPY public ./public
-COPY next.config.ts postcss.config.mjs tsconfig.json ./
+COPY next.config.ts tsconfig.json ./
 RUN npm run build
 
 FROM ${NODE_IMAGE} AS runtime

@@ -35,18 +35,27 @@ assert.match(version, /^[a-f0-9]{20}$/);
 assert.deepEqual(routes, ["/", "/plan"]);
 assert(routes.every((route) => entries.some(([path]) => path === route)));
 
+let offlineBytes = 0;
 for (const [path, expected] of entries) {
   assert(path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/api/"), `Unexpected cache path ${path}`);
   const response = await get(path);
   assert(response.ok, `${path} returned ${response.status}`);
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   const data = Buffer.from(await response.arrayBuffer());
+  offlineBytes += data.length;
   const integrity = "sha256-" + createHash("sha256").update(data).digest("base64");
   assert.equal(integrity, expected, `${path} does not match the offline manifest.`);
   if (routes.includes(path)) {
-    assert.match(data.toString("utf8"), /<title>[^<]*AirDaybook[^<]*<\/title>/);
+    const html = data.toString("utf8");
+    assert.match(html, /<title>[^<]*AirDaybook[^<]*<\/title>/);
+    const [policy] = html.match(/<meta http-equiv="Content-Security-Policy" content="script-src 'self'[^"]*">/) ?? [];
+    assert(policy, "The static document must carry its script policy into offline mode.");
+    for (const [, attributes, script] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+      if (!/\bsrc\s*=/i.test(attributes)) assert(policy.includes(createHash("sha256").update(script).digest("base64")));
+    }
     assert.match(response.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
     assert.equal(response.headers.get("referrer-policy"), "no-referrer");
   }
 }
-console.log(JSON.stringify({ origin: origin.origin, health: "ok", offlineVersion: version, verifiedFiles: entries.length }));
+assert(offlineBytes <= 1_100_000, `Offline shell exceeds 1.1 MB before HTTP compression: ${offlineBytes} bytes.`);
+console.log(JSON.stringify({ origin: origin.origin, health: "ok", offlineVersion: version, verifiedFiles: entries.length, offlineBytes }));

@@ -1,3 +1,4 @@
+import { useLocale } from "./locale";
 import { CalendarClock, House, Map } from "lucide-react";
 import type { planningActions } from "@/lib/planning-actions";
 import { PlanLink } from "./plan-link";
@@ -5,9 +6,10 @@ import { PlanLink } from "./plan-link";
 const icons = { schedule: CalendarClock, home: House, travel: Map };
 
 export function PlanningActions({ result }: { result: ReturnType<typeof planningActions> }) {
+  const { t } = useLocale();
   return (
     <section className="plan-actions" aria-labelledby="plan-actions-title">
-      <h2 id="plan-actions-title" className="section-title">What you can change</h2>
+      <h2 id="plan-actions-title" className="section-title">{t("What you can change")}</h2>
       <p className="planning-context">{result.context}</p>
       <ul>
         {result.actions.map(({ area, title, description, source }) => {

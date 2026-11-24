@@ -1,41 +1,46 @@
 "use client";
 
+import { useLocale } from "./locale";
+
 import { Clock3, MapPin, ArrowUpRight, Radio } from "lucide-react";
 import { readingView } from "@/lib/readings";
 import { DELHI_REPLAY, replayDate } from "@/lib/replay";
-import { useDraft } from "./draft-provider";
+import { sourceHostname } from "@/lib/input-text";
+import { useDraftState, useReadingClock } from "./draft-provider";
 
 export function ReadingCard() {
-  const { draft, ready, now } = useDraft();
+  const { t } = useLocale();
+  const { draft, ready } = useDraftState();
+  const now = useReadingClock();
   const reading = readingView(draft.selection, now);
   const replay = draft.selection === "replay";
   return (
     <section className="reading-panel" id="active-reading" tabIndex={-1} aria-labelledby="reading-heading">
       <div className="section-line">
-        <h2 className="eyebrow" id="reading-heading"><Radio size={16} aria-hidden /> Selected reading</h2>
-        {reading && <span className={replay ? "state state-replay" : "state"}>{reading.state}</span>}
+        <h2 className="eyebrow" id="reading-heading"><Radio size={16} aria-hidden /> {t("Selected reading")}</h2>
+        {reading && <span className={replay ? "state state-replay" : "state"}>{t(reading.state)}</span>}
       </div>
       {reading ? (
         <div className="reading-content" key={draft.selection === "replay" ? "replay" : draft.selection?.observation.observedAt}>
           <div className="reading-number"><strong>{reading.value}</strong><span>{reading.unit}</span></div>
-          <h3 className="reading-title">{reading.title}</h3>
+          <h3 className="reading-title">{t(reading.title)}</h3>
           {reading.kind === "historical" && <p className="reading-context">Example from the archive. Check CPCB for today’s reading.</p>}
           {reading.kind === "stale" && <p className="reading-context">This reading is over six hours old. Check a newer reading before making decisions.</p>}
           {reading.normalization && <p className="muted">{reading.normalization}</p>}
           <ul className="reading-meta">
-            <li><MapPin size={15} aria-hidden /> {reading.place} · {reading.scope}</li>
+            <li><MapPin size={15} aria-hidden /> {reading.place} · {t(reading.scope)}</li>
             <li><Clock3 size={15} aria-hidden /> {reading.time}</li>
           </ul>
           <div className="reading-source">
-            <span>{reading.origin}</span>
-            <span>{reading.averaging}</span>
-            {reading.url ? <a href={reading.url} target="_blank" rel="noreferrer">{reading.source}<ArrowUpRight size={14} aria-hidden /></a>
+            <span>{t(reading.origin)}</span>
+            <span>{t(reading.averaging)}</span>
+            {reading.url ? <a href={reading.url} target="_blank" rel="noopener noreferrer">{reading.source} ({sourceHostname(reading.url)})<ArrowUpRight size={14} aria-hidden /></a>
               : <span>{reading.source}</span>}
           </div>
         </div>
       ) : (
         <div className="empty-reading">
-          <h3>{ready ? "No current reading" : "Opening your workspace"}</h3>
+          <h3>{t(ready ? "No current reading" : "Opening your workspace")}</h3>
           <p>{ready ? "Look up your city or station on CPCB and enter the reading here. You can also start planning before you have one." : "Checking for a reading saved on this device."}</p>
         </div>
       )}
@@ -44,6 +49,7 @@ export function ReadingCard() {
 }
 
 export function ReplayDetails() {
+  const { t } = useLocale();
   const { place, invocation, revocation, additionalMeasures } = DELHI_REPLAY;
   const datedOrders = [
     { order: invocation, label: "invocation" },
@@ -52,7 +58,7 @@ export function ReplayDetails() {
   ];
   return (
     <details className="replay-details">
-      <summary>View the dated CAQM orders</summary>
+      <summary>{t("View the dated CAQM orders")}</summary>
       <ol className="order-timeline">
         <li><time dateTime={invocation.date}>{replayDate(invocation.date, "en-IN", "short")}</time><p>{place} reported city AQI {invocation.aqi}. CAQM invoked GRAP Stage III ahead of forecast Severe conditions.</p></li>
         <li><time dateTime={revocation.date}>{replayDate(revocation.date, "en-IN", "short")}</time><p>CAQM revoked Stage III when {place} reported AQI {revocation.aqi}. Stage I and II remained in force as of that date.</p></li>

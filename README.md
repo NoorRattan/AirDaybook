@@ -37,22 +37,24 @@ The manual planner works with AI disabled. To enable Groq, configure these varia
 | `AI_DAILY_LIMIT` | Positive daily cap on upstream requests |
 | `AI_MAX_CONCURRENT` | Positive cap on simultaneous requests |
 | `AI_BURST_PER_MINUTE` | Positive cap on requests per minute |
+| `AI_CLIENT_DAILY_LIMIT` | Optional Vercel allowance per client. Defaults to up to three per Indian calendar day, bounded by the global allowance. |
 | `AI_QUOTA_DB_PATH` | Absolute path to a SQLite database in an existing writable directory |
 | `AI_QUOTA_DATABASE_URL` | Shared Postgres quota database on Vercel. Also reads the integration's `DATABASE_URL` or `POSTGRES_URL`. |
 | `AI_PROVIDER_TIMEOUT_MS` | Optional deadline in milliseconds, defaults to 8000 |
 
-The AI proposes changes to four editable preferences and waits for confirmation before applying them. The request contains the follow-up text, four editable preference values, and an opaque revision ID. Fixed commitments, readings, and group notes stay in the browser. Run one app instance per SQLite quota disk. Postgres coordinates the daily, burst and concurrent limits across instances. The hosted demo currently runs in manual mode.
+The assistant proposes edits to four preferences and can route a request to the routine, indoor air, travel or group-note tool. Preference edits require confirmation. The request contains submitted text, the four editable preference values, an opaque revision ID and the selected assistant mode. Fixed commitments, saved routines, readings and group notes stay in the browser. SQLite coordinates short-lived and daily reservations for processes on the same writable disk. Postgres coordinates them across instances. Vercel enforces a separate allowance for each client recognized by its ingress.
 
 ## Verify
 
 ```sh
 npm run typecheck
+npm run lint
 npm test
 npm run build
 npm run test:api
 ```
 
-The domain tests cover reading provenance and freshness, fixed commitments, wait and travel calculations, privacy in group notes, and the model response contract. Use `npm run test:coverage` to see coverage for the exercised domain modules. The API suite starts the production standalone server, uses a temporary SQLite quota database, and substitutes a local provider fixture. It covers validation, provider failures, timeouts, quotas, and redacted logs without sending requests to Groq.
+The domain tests cover reading provenance, fixed commitments, IndexedDB storage, impact calculations, and the model response contract. Use `npm run test:coverage` to see coverage for the domain modules. The API suite runs a production standalone server and uses temporary quota storage with a local provider fixture. Set `AIRDAYBOOK_TEST_POSTGRES_URL` to a disposable local PostgreSQL service to include the production adapter checks.
 
 Build and start the same standalone Linux image used by GitHub Actions.
 
@@ -69,12 +71,12 @@ With the production server running, use `node scripts/smoke-release.mjs http://1
 
 Import the GitHub repo into a Vercel Hobby workspace with Next.js as the preset. Use Node.js 24 and `npm run build` so deployment includes the generated offline worker. Manual mode can deploy without environment variables. To enable AI on Vercel, attach a shared Postgres database such as Neon Free, save `GROQ_API_KEY` as a sensitive server-side variable, and set `AI_ENABLED=true` and the three AI limits. The production domain can be inferred from Vercel's system environment variables or set explicitly with `APP_ORIGIN`.
 
-The Postgres adapter creates two quota tables on first use. They contain daily counts and short-lived request leases. The database connection fails closed, and quota failures leave the manual planner available. Verify the HTTPS release with `node scripts/smoke-release.mjs` followed by the deployment origin.
+The Postgres adapter creates quota tables for global daily counts, short-lived requests, and per-client daily counts. It stores a keyed digest of the address Vercel supplies at ingress. IPv6 addresses share their /64 network allowance. The app also limits each client’s rolling-minute requests. Local AI accepts loopback development origins. Quota failures leave the manual planner available. Verify the HTTPS release with `node scripts/smoke-release.mjs` followed by the deployment origin.
 
 Use `ai_configuration` events to check whether the server accepted its runtime settings. Use `plan_revision` events to distinguish provider failures, timeouts, quota-store failures, and usage limits. The core health endpoint stays independent of AI.
 
 ## Offline planner
 
-Open either page on the local production image or an HTTPS deployment. Wait for **Available offline** in the footer. Both pages, the Delhi replay, reading imports, manual edits, route comparisons and community notes work offline. Drafts stay in IndexedDB. AI suggestions require a connection.
+Open either page on the local production image or an HTTPS deployment. Wait for **Available offline** in the footer. Both pages, the Delhi replay, reading imports, routine edits, route comparisons and community notes work offline. Drafts stay in IndexedDB. AI and new city estimates require a connection. City estimates come from the CAMS model through Open-Meteo and are labeled separately from station measurements.
 
 The production build emits the versioned service worker. An installed update offers **Load saved update** once its complete shell has been downloaded and checked. The existing shell remains available while the next version installs.

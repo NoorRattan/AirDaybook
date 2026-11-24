@@ -9,6 +9,7 @@ export type Viewpoint = "street" | "roof" | "sky";
 export type AtmosphereProps = {
   viewpoint: Viewpoint;
   paused: boolean;
+  active: boolean;
   pointer: RefObject<{ x: number; y: number }>;
   redraw: RefObject<(() => void) | null>;
   onPaint: () => void;
@@ -48,17 +49,18 @@ function CityModel() {
   useLayoutEffect(() => {
     if (!walls.current || !roofs.current || !windows.current) return;
     const transform = new Object3D();
+    const paint = new Color();
     buildings.forEach(({ x, z, height, width, depth, color }, index) => {
       transform.position.set(x, height * 0.5, z);
       transform.scale.set(width, height, depth);
       transform.updateMatrix();
       walls.current?.setMatrixAt(index, transform.matrix);
-      walls.current?.setColorAt(index, new Color(color));
+      walls.current?.setColorAt(index, paint.set(color));
       transform.position.set(x, height + 0.072, z);
       transform.scale.set(width * 1.075, 0.15, depth * 1.075);
       transform.updateMatrix();
       roofs.current?.setMatrixAt(index, transform.matrix);
-      roofs.current?.setColorAt(index, new Color(color).multiplyScalar(1.2));
+      roofs.current?.setColorAt(index, paint.multiplyScalar(1.2));
       for (let floor = 0; floor < 2; floor++) {
         const windowY = height * (0.36 + floor * 0.34);
         for (let bay = 0; bay < 2; bay++) {
@@ -69,12 +71,13 @@ function CityModel() {
           transform.scale.set(width * 0.2, Math.min(height * 0.15, 0.28), 0.03);
           transform.updateMatrix();
           windows.current?.setMatrixAt(windowIndex, transform.matrix);
-          windows.current?.setColorAt(windowIndex, new Color(tone));
+          paint.set(tone);
+          windows.current?.setColorAt(windowIndex, paint);
           transform.position.set(x + width * 0.5 + 0.015, windowY, z + lateral * depth);
           transform.scale.set(0.03, Math.min(height * 0.15, 0.28), depth * 0.2);
           transform.updateMatrix();
           windows.current?.setMatrixAt(windowIndex + 1, transform.matrix);
-          windows.current?.setColorAt(windowIndex + 1, new Color(tone));
+          windows.current?.setColorAt(windowIndex + 1, paint);
         }
       }
     });
@@ -116,6 +119,38 @@ function CityModel() {
   );
 }
 
+type Point = [number, number, number];
+function TrackInstances({ points, size, children, castShadow = false }: {
+  points: Point[]; size: Point; children: React.ReactNode; castShadow?: boolean;
+}) {
+  const mesh = useRef<InstancedMesh>(null);
+  useLayoutEffect(() => {
+    if (!mesh.current) return;
+    const transform = new Object3D();
+    for (const [index, point] of points.entries()) {
+      transform.position.set(...point);
+      transform.updateMatrix();
+      mesh.current.setMatrixAt(index, transform.matrix);
+    }
+    mesh.current.instanceMatrix.needsUpdate = true;
+    mesh.current.computeBoundingSphere();
+  }, [points]);
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, points.length]} castShadow={castShadow}>
+      <boxGeometry args={size} />
+      {children}
+    </instancedMesh>
+  );
+}
+
+const pillarPositions: Point[] = [-9.2, -5.9, -2.6, 0.7, 4, 7.3, 10.6].map((z) => [0, 0.6, z]);
+const railPositions: Point[] = [-0.58, 0.58].map((x) => [x, 1.48, 0]);
+const carCenters = [5.7, 3.86, 2.02, 0.18];
+const cars: Point[] = carCenters.map((z) => [0.02, 1.74, z]);
+const trim: Point[] = carCenters.map((z) => [0.02, 1.675, z]);
+const windows: Point[] = carCenters.map((z) => [0.02, 1.815, z]);
+const lights: Point[] = [-0.22, 0.24].map((x) => [x, 1.66, 6.57]);
+
 function ElevatedMetro() {
   return (
     <group position={[0.8, 0, 0]} rotation={[0, -0.54, 0]}>
@@ -123,45 +158,17 @@ function ElevatedMetro() {
         <boxGeometry args={[1.47, 0.24, 24.6]} />
         <meshStandardMaterial color="#81675b" roughness={0.9} />
       </mesh>
-      {[-9.2, -5.9, -2.6, 0.7, 4, 7.3, 10.6].map((z) => (
-        <mesh key={z} position={[0, 0.6, z]} castShadow>
-          <boxGeometry args={[0.32, 1.2, 0.43]} />
-          <meshStandardMaterial color="#71584f" roughness={0.86} />
-        </mesh>
-      ))}
-      {[-0.58, 0.58].map((x) => (
-        <mesh key={x} position={[x, 1.48, 0]}>
-          <boxGeometry args={[0.055, 0.075, 24.5]} />
-          <meshStandardMaterial color="#a48874" roughness={0.61} />
-        </mesh>
-      ))}
-      {[5.7, 3.86, 2.02, 0.18].map((z) => (
-        <group key={z} position={[0.02, 1.74, z]}>
-          <mesh castShadow>
-            <boxGeometry args={[0.78, 0.51, 1.71]} />
-            <meshStandardMaterial color="#d4aa88" roughness={0.5} metalness={0.48} />
-          </mesh>
-          <mesh position={[0, -0.065, 0]}>
-            <boxGeometry args={[0.79, 0.095, 1.72]} />
-            <meshStandardMaterial color="#963c32" roughness={0.67} />
-          </mesh>
-          <mesh position={[0, 0.075, 0]}>
-            <boxGeometry args={[0.79, 0.135, 1.29]} />
-            <meshStandardMaterial color="#3e3538" roughness={0.52} />
-          </mesh>
-        </group>
-      ))}
-      {[-0.22, 0.24].map((x) => (
-        <mesh key={x} position={[x, 1.66, 6.57]}>
-          <boxGeometry args={[0.09, 0.074, 0.028]} />
-          <meshStandardMaterial color="#ffce8a" emissive="#ffb062" emissiveIntensity={3.4} toneMapped={false} />
-        </mesh>
-      ))}
+      <TrackInstances points={pillarPositions} size={[0.32, 1.2, 0.43]} castShadow><meshStandardMaterial color="#71584f" roughness={0.86} /></TrackInstances>
+      <TrackInstances points={railPositions} size={[0.055, 0.075, 24.5]}><meshStandardMaterial color="#a48874" roughness={0.61} /></TrackInstances>
+      <TrackInstances points={cars} size={[0.78, 0.51, 1.71]} castShadow><meshStandardMaterial color="#d4aa88" roughness={0.5} metalness={0.48} /></TrackInstances>
+      <TrackInstances points={trim} size={[0.79, 0.095, 1.72]}><meshStandardMaterial color="#963c32" roughness={0.67} /></TrackInstances>
+      <TrackInstances points={windows} size={[0.79, 0.135, 1.29]}><meshStandardMaterial color="#3e3538" roughness={0.52} /></TrackInstances>
+      <TrackInstances points={lights} size={[0.09, 0.074, 0.028]}><meshStandardMaterial color="#ffce8a" emissive="#ffb062" emissiveIntensity={3.4} toneMapped={false} /></TrackInstances>
     </group>
   );
 }
 
-function Perspective({ viewpoint, paused, pointer, redraw, onPaint, onUnavailable }: AtmosphereProps) {
+function Perspective({ viewpoint, paused, active, pointer, redraw, onPaint, onUnavailable }: AtmosphereProps) {
   const { gl, invalidate } = useThree();
   const painted = useRef(false);
   const destination = useRef(new Vector3());
@@ -177,7 +184,7 @@ function Perspective({ viewpoint, paused, pointer, redraw, onPaint, onUnavailabl
     };
   }, [gl, invalidate, onUnavailable, redraw]);
 
-  useEffect(() => { invalidate(); }, [viewpoint, paused, invalidate]);
+  useEffect(() => { if (active) invalidate(); }, [viewpoint, paused, active, invalidate]);
 
   useFrame(({ camera }, delta) => {
     const [x, y, z] = cameras[viewpoint];
@@ -200,7 +207,8 @@ function Perspective({ viewpoint, paused, pointer, redraw, onPaint, onUnavailabl
 export function AtmosphereScene(props: AtmosphereProps) {
   return (
     <Canvas camera={{ position: cameras.roof, fov: 45, near: 0.2, far: 110 }} dpr={[1, 1.25]}
-      frameloop="demand" gl={{ antialias: true, powerPreference: "low-power", alpha: false }} shadows>
+      frameloop={props.active ? "demand" : "never"} gl={{ antialias: true, powerPreference: "low-power", alpha: false }} shadows
+      onCreated={({ gl }) => { gl.shadowMap.autoUpdate = false; gl.shadowMap.needsUpdate = true; }}>
       <color attach="background" args={["#a67157"]} />
       <fogExp2 attach="fog" args={["#a67157", 0.019]} />
       <hemisphereLight args={["#ffe2bd", "#74575f", 1.7]} />

@@ -5,7 +5,7 @@ import { join, sep } from "node:path";
 const next = ".next";
 const vercel = join(next, "output");
 const hasVercelOutput = await stat(join(vercel, "config.json")).then(() => true, () => false);
-const publicFiles = ["delhi-metro-dawn.webp", "delhi-metro-dawn-small.webp"];
+const publicFiles = ["delhi-metro-dawn.webp", "delhi-metro-dawn-small.webp", "delhi-metro-dawn.avif", "delhi-metro-dawn-small.avif"];
 const routes = {
   "/": "index",
   "/plan": "plan",
@@ -33,19 +33,58 @@ async function prerenderedFile(path, name) {
   throw new Error(`Missing prerender for ${path}. Checked ${candidates.join(", ")}.`);
 }
 
+async function secureDocument(file) {
+  const html = (await readFile(file, "utf8")).replace(/<meta http-equiv="Content-Security-Policy" content="[^"]*">/, "");
+  const hashes = new Set();
+  for (const [, attributes, script] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+    if (!/\bsrc\s*=/i.test(attributes)) hashes.add(`'sha256-${createHash("sha256").update(script).digest("base64")}'`);
+  }
+  if (!hashes.size || !html.includes("<head>")) throw new Error(`Unable to protect release document ${file}.`);
+  const policy = `script-src 'self' ${[...hashes].join(" ")}; script-src-attr 'none'`;
+  // The policy travels with the prerender when the service worker serves it offline.
+  await writeFile(file, html.replace("<head>", `<head><meta http-equiv="Content-Security-Policy" content="${policy}">`));
+}
+
 const staticRoot = join(next, "static");
+const documents = await Promise.all(Object.entries(routes).map(async ([path, name]) => [path, await prerenderedFile(path, name)]));
+const secured = new Set(documents.map(([, file]) => file));
+for (const name of ["_not-found", "_global-error"]) {
+  const fallback = await prerenderedFile("/" + name, name).catch(() => null);
+  if (fallback) secured.add(fallback);
+}
+for (const name of [...Object.values(routes), "_not-found", "_global-error"]) {
+  const file = join(next, "standalone", next, "server", "app", `${name}.html`);
+  if (await stat(file).then((info) => info.isFile(), () => false)) secured.add(file);
+}
+for (const file of secured) await secureDocument(file);
+const html = (await Promise.all(documents.map(([, file]) => readFile(file, "utf8")))).join("\n");
+const { polyfillFiles } = JSON.parse(await readFile(join(next, "build-manifest.json"), "utf8"));
+const initialScripts = new Set([...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*>/gi)]
+  .filter(([tag]) => !/\bnomodule\b/i.test(tag)).map(([, src]) => src));
 const staticFiles = (await readdir(staticRoot, { recursive: true, withFileTypes: true }))
   .filter((entry) => entry.isFile() && /\.(?:js|css|woff2?|ico)$/.test(entry.name))
   .map((entry) => join(entry.parentPath, entry.name).slice(staticRoot.length + 1))
   .sort();
+const offlineFiles = [];
+for (const file of staticFiles) {
+  const url = "/_next/static/" + urlPath(file);
+  const legacyPolyfill = polyfillFiles.includes("static/" + urlPath(file));
+  // This Three.js diagnostic identifies the deferred renderer without relying on a build hash or file size.
+  const sceneRenderer = file.endsWith(".js") && (await readFile(join(staticRoot, file), "utf8")).includes("THREE.WebGLRenderer:");
+  if (legacyPolyfill || sceneRenderer) {
+    if (initialScripts.has(url)) throw new Error(`Optional offline exclusion is now an entry script: ${url}`);
+  } else {
+    offlineFiles.push([url, join(staticRoot, file)]);
+  }
+}
 
-if (!staticFiles.some((file) => file.endsWith(".js")) || !staticFiles.some((file) => file.endsWith(".css"))) {
+if (!offlineFiles.some(([url]) => url.endsWith(".js")) || !offlineFiles.some(([url]) => url.endsWith(".css"))) {
   throw new Error("The production build does not contain the offline shell assets.");
 }
 
 const files = [
-  ...await Promise.all(Object.entries(routes).map(async ([path, name]) => [path, await prerenderedFile(path, name)])),
-  ...staticFiles.map((file) => ["/_next/static/" + urlPath(file), join(staticRoot, file)]),
+  ...documents,
+  ...offlineFiles,
   ...publicFiles.map((file) => ["/" + file, join("public", file)]),
 ];
 const entries = await Promise.all(files.map(async ([url, file]) => [url, await integrity(file)]));
@@ -57,4 +96,5 @@ const source = `const airdaybookBuild = ${JSON.stringify(manifest)};\n${worker}`
 await writeFile("public/sw.js", source, "utf8");
 // Vercel's Next.js adapter has already copied public files when this step runs.
 if (hasVercelOutput) await writeFile(join(vercel, "static", "sw.js"), source, "utf8");
-console.log(`Prepared AirDaybook offline shell ${version} with ${entries.length} files.`);
+const bytes = (await Promise.all(files.map(([, file]) => stat(file)))).reduce((total, file) => total + file.size, 0);
+console.log(`Prepared AirDaybook offline shell ${version} with ${entries.length} files (${bytes} bytes).`);

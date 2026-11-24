@@ -11,23 +11,21 @@
     "build": "next build && node scripts/build-offline.mjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/domain.test.ts",
-    "test:coverage": "node --import tsx --test --experimental-test-coverage --test-coverage-include=src/lib/*.ts tests/domain.test.ts",
+    "lint": "eslint src scripts tests next.config.ts",
+    "format": "prettier --write src scripts tests next.config.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:coverage": "node --import tsx --test --experimental-test-coverage --test-coverage-include=src/lib/*.ts --test-coverage-lines=88 tests/*.test.ts",
     "test:api": "node --test tests/api.mjs",
-    "test:browser": "node tests/browser.mjs"
+    "test:browser": "node tests/browser.mjs",
+    "test:lighthouse": "node scripts/test-lighthouse.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/dm-sans": "5.3.0",
-    "@fontsource/ibm-plex-mono": "5.3.0",
-    "@fontsource/instrument-serif": "5.3.0",
     "@react-three/fiber": "9.8.2",
-    "@tailwindcss/postcss": "4.3.5",
     "lucide-react": "1.78.0",
     "next": "16.4.6",
     "postgres": "4.1.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "tailwindcss": "4.3.5",
     "three": "0.187.0",
     "zod": "4.6.7"
   },
@@ -37,8 +35,13 @@
     "@types/react-dom": "19.2.3",
     "@types/three": "0.187.0",
     "axe-core": "4.14.1",
+    "eslint": "10.15.0",
+    "fake-indexeddb": "6.2.8",
+    "lighthouse": "13.6.0",
     "playwright-core": "1.65.1",
+    "prettier": "3.10.1",
     "tsx": "4.23.15",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.74.0"
   }
 }
