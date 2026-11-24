@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
+import { inlineScriptHashes } from "./inline-script-hashes.mjs";
 
 const origin = new URL(process.argv[2] ?? "http://127.0.0.1:3000");
 const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(origin.hostname);
@@ -87,9 +88,9 @@ for (const [path, expected] of entries) {
     }
     const [policy] = html.match(/<meta http-equiv="Content-Security-Policy" content="script-src 'self'[^"]*">/) ?? [];
     assert(policy, "The static document must carry its script policy into offline mode.");
-    for (const [, attributes, script] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
-      if (!/\bsrc\s*=/i.test(attributes)) assert(policy.includes(createHash("sha256").update(script).digest("base64")));
-    }
+    const hashes = inlineScriptHashes(html);
+    assert(hashes.length > 0, "The release document should contain inline bootstrap scripts.");
+    for (const hash of hashes) assert(policy.includes(hash));
     assert.match(response.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
     assert.equal(response.headers.get("referrer-policy"), "no-referrer");
   }

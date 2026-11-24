@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { join, sep } from "node:path";
+import { inlineScriptHashes } from "./inline-script-hashes.mjs";
 
 const next = ".next";
 const vercel = join(next, "output");
@@ -35,12 +36,9 @@ async function prerenderedFile(path, name) {
 
 async function secureDocument(file) {
   const html = (await readFile(file, "utf8")).replace(/<meta http-equiv="Content-Security-Policy" content="[^"]*">/, "");
-  const hashes = new Set();
-  for (const [, attributes, script] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
-    if (!/\bsrc\s*=/i.test(attributes)) hashes.add(`'sha256-${createHash("sha256").update(script).digest("base64")}'`);
-  }
-  if (!hashes.size || !html.includes("<head>")) throw new Error(`Unable to protect release document ${file}.`);
-  const policy = `script-src 'self' ${[...hashes].join(" ")}; script-src-attr 'none'`;
+  const hashes = inlineScriptHashes(html);
+  if (!hashes.length || !html.includes("<head>")) throw new Error(`Unable to protect release document ${file}.`);
+  const policy = `script-src 'self' ${hashes.join(" ")}; script-src-attr 'none'`;
   // The policy travels with the prerender when the service worker serves it offline.
   await writeFile(file, html.replace("<head>", `<head><meta http-equiv="Content-Security-Policy" content="${policy}">`));
 }

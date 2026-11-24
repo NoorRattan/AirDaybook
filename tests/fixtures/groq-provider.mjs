@@ -52,10 +52,10 @@ if (process.env.AIRDAYBOOK_TEST_PROVIDER === "1") {
       result.tool = "routes";
       result.preferences.hasPurifier = "unchanged";
     } else if (submitted.text === examples.itinerary) {
-      assert(payload.response_format.json_schema.schema.required.includes("activityQuotes"));
+      assert.deepEqual(payload.response_format.json_schema.schema.required, ["outcome", "preferences", "tool"]);
+      result.outcome = "no_change";
       result.tool = null;
       result.preferences.hasPurifier = "unchanged";
-      result.activityQuotes = [...submitted.text.split("; "), "Errand at 17:00 for 10 minutes outdoors"];
     } else if (submitted.text === examples.clarify) {
       result.outcome = "clarify";
       result.preferences.hasPurifier = "unchanged";

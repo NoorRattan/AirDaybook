@@ -41,12 +41,10 @@ function parseLine(line: string): DraftActivity | null {
   };
 }
 
-export function draftActivities(text: string, quotes?: string[]): DraftActivity[] {
+export function draftActivities(text: string): DraftActivity[] {
   const lines = new Set(text.split(/[;\n]+/u).map(normalize));
-  const selected = quotes && new Set(quotes.map(normalize));
   const activities: DraftActivity[] = [];
   for (const line of lines) {
-    if (selected && !selected.has(line)) continue;
     const activity = parseLine(line);
     if (activity) activities.push(activity);
     if (activities.length === maxDraftActivities) break;

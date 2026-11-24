@@ -53,35 +53,27 @@ const modelResultSchema = z.strictObject({
 });
 
 const assistantResultSchema = z.extend(modelResultSchema, { tool: z.nullable(tool) });
-const activityResultSchema = z.extend(assistantResultSchema, { activityQuotes: z.array(z.string()) });
-export function revisionModelSchema(assistant: boolean | undefined, routineDraft = false) {
-  const schema = routineDraft ? activityResultSchema : assistant ? assistantResultSchema : modelResultSchema;
-  return z.toJSONSchema(schema, { target: "draft-7" });
+export function revisionModelSchema(assistant: boolean | undefined) {
+  return z.toJSONSchema(assistant ? assistantResultSchema : modelResultSchema, { target: "draft-7" });
 }
 
 export function interpretationToRevision(data: unknown, request: RevisionRequest): RevisionResponse | null {
-  const result = request.routineDraft ? activityResultSchema.safeParse(data)
-    : request.assistant ? assistantResultSchema.safeParse(data) : modelResultSchema.safeParse(data);
+  const result = request.assistant ? assistantResultSchema.safeParse(data) : modelResultSchema.safeParse(data);
   if (!result.success) return null;
   const { outcome, preferences } = result.data;
   const focus = "tool" in result.data ? result.data.tool as (typeof assistantTools)[number] | null : null;
-  let activities: ReturnType<typeof draftActivities> = [];
-  if ("activityQuotes" in result.data) {
-    const quotes = result.data.activityQuotes as string[];
-    if (quotes.length > maxDraftActivities || quotes.some((quote) => quote.length > 200)) return null;
-    activities = draftActivities(request.text, quotes);
-  }
   const submittedChanges = preferenceKeys.filter((key) => preferences[key] !== "unchanged");
-  if (Boolean(submittedChanges.length || focus || activities.length) !== (outcome === "apply")) return null;
+  if (Boolean(submittedChanges.length || focus) !== (outcome === "apply")) return null;
 
   const changes: PreferenceChanges = {};
   for (const key of submittedChanges) {
     const newValue = preferences[key] === "enable";
     if (newValue !== request.preferences[key]) changes[key] = newValue;
   }
+  const activities = request.routineDraft ? draftActivities(request.text) : [];
   return {
     revisionId: request.revisionId,
-    outcome: outcome === "apply" && Object.keys(changes).length === 0 && !focus && !activities.length ? "no_change" : outcome,
+    outcome: Object.keys(changes).length || focus || activities.length ? "apply" : outcome === "apply" ? "no_change" : outcome,
     changes,
     ...(focus ? { tool: focus } : {}),
     ...(activities.length ? { activities } : {}),

@@ -40,7 +40,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm audit --omit=dev --audit-level=moderate
       - run: npm run lint
-      - run: node --test tests/lighthouse.test.mjs
+      - run: node --test tests/lighthouse.test.mjs tests/inline-script-hashes.test.mjs
       - run: npm run test:coverage
       - run: npm run build
       - run: npm run typecheck

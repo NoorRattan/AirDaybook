@@ -69,7 +69,7 @@ test("routine intake keeps source activities and protects existing time blocks",
   const [walk, meal, pickup] = draftActivities(text);
   assert.deepEqual(walk, { name: "Walk", time: "18:00", minutes: 30, outdoors: true, fixed: false, strenuous: true });
   assert.deepEqual(meal, { name: "रात का खाना", time: "20:00", minutes: 45, outdoors: false, fixed: true, strenuous: false });
-  assert.deepEqual(draftActivities(text, [dinner, "Walk at 6:01 pm for 30 minutes bahar", eveningWalk]), [walk, meal]);
+  assert.deepEqual(draftActivities(`${eveningWalk}; ${dinner}; ${eveningWalk}`), [walk, meal]);
   assert.equal(draftActivities(Array.from({ length: 8 }, (_, i) => `Block ${i} at 12:00 am for 5 min indoor`).join("\n")).length, 4);
   assert.equal(draftActivities("Block at 12:00 am for 5 min inside")[0].time, "00:00");
   for (const invalid of ["No explicit time", "Run at 18:70 for 20 minutes outdoors", "Run at 18:00 for 0 minutes outdoors", "Run at 18:00 for 721 minutes outdoors", "Run at 13:00 pm for 20 minutes outdoors", "Run at 25:00 for 20 minutes outdoors", "Run at 18:00 for 20 minutes nowhere", "Run at 18:00 for 20 minutes fixed", "Run at 18:00 for 20 minutes indoor outdoor", "Run at 18:00 for 20 minutes indoor fixed flexible", "Run at 18:00 for 20 minutes indoor easy strenuous", "name@example.com at 18:00 for 20 minutes indoor", `${"x".repeat(101)} at 18:00 for 20 minutes indoor`]) {

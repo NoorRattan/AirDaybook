@@ -30,7 +30,8 @@ flowchart LR
     Planner --> Draft[IndexedDB and offline shell]
     Planner --> Note[English or Hindi group note]
     Text[User-submitted follow-up] --> Quota[Vercel API and Postgres quota]
-    Quota --> Groq[Groq selects a tool, preferences or quoted activity lines]
+    Quota --> Groq[Groq suggests tools and preferences]
+    Quota -->|Submitted activity text| Validate
     Groq --> Validate[Check activity text and available times]
     Text -->|On-device draft| Validate
     Validate --> Review[User review and confirmation]
@@ -67,7 +68,7 @@ The manual planner works with AI disabled. To enable Groq, configure these varia
 | `AI_QUOTA_DATABASE_URL` | Shared Postgres quota database on Vercel. Also reads the integration's `DATABASE_URL` or `POSTGRES_URL`. |
 | `AI_PROVIDER_TIMEOUT_MS` | Optional deadline in milliseconds, defaults to 8000 |
 
-The assistant proposes edits to four preferences and can route a request to the routine, indoor air, travel or group-note tool. It can also select up to four activity lines from submitted text. Provide a name, start time, duration in minutes, and indoor or outdoor setting for each activity, with one activity per line or separated by semicolons. The app checks the selected lines against the input and screens proposed activities for conflicts with saved times. Both preference and routine edits require confirmation. Fixed commitments, saved routines, readings and group notes stay in the browser. SQLite coordinates short-lived and daily reservations for processes on the same writable disk. Postgres coordinates them across instances. Vercel enforces a separate allowance for each client recognized by its ingress.
+Groq proposes edits to four preferences and can route a request to the routine, indoor air, travel or group-note tool. AirDaybook extracts up to four activities directly from submitted text and screens them for conflicts with saved times. Provide a name, start time, duration in minutes, and indoor or outdoor setting for each activity, with one activity per line or separated by semicolons. Both preference and routine edits require confirmation. Fixed commitments, saved routines, readings and group notes stay in the browser. SQLite coordinates short-lived and daily reservations for processes on the same writable disk. Postgres coordinates them across instances. Vercel enforces a separate allowance for each client recognized by its ingress.
 
 ## Verify
 
@@ -100,7 +101,7 @@ The Postgres adapter creates quota tables for global daily counts, short-lived r
 
 Use `ai_configuration` events to check whether the server accepted its runtime settings. Use `plan_revision` events to distinguish provider failures, timeouts, quota-store failures, and usage limits. The core health endpoint stays independent of AI.
 
-The weekly production workflow checks core health, the public AI availability endpoint and institutional citation URLs. See the [security policy](SECURITY.md) for the private reporting channel.
+The weekly production workflow checks core health, the public AI availability endpoint and institutional citation URLs. A connection timeout from the hosted runner to CPCB calls for a check from another network. See the [security policy](SECURITY.md) for the private reporting channel.
 
 ## Offline planner
 

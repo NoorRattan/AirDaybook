@@ -42,10 +42,14 @@ async function checkCitation(link) {
   console.log(`OK ${link}`);
 }
 
-async function report(label, check) {
+async function report(label, check, allowConnectTimeout = false) {
   try {
     await check();
   } catch (error) {
+    if (allowConnectTimeout && (error.name === "TimeoutError" || error.cause?.code === "UND_ERR_CONNECT_TIMEOUT")) {
+      console.warn(`::warning::${label} timed out from this runner after both HEAD and GET. Verify the citation from another network.`);
+      return;
+    }
     console.error(`${label} ${error.cause?.code ?? error.message}`);
     process.exitCode = 1;
   }
@@ -57,5 +61,5 @@ await Promise.all([
     assert.match(headers.get("x-airdaybook-release") ?? "", /^[a-f0-9]{12}$/);
   })),
   report("AI availability", () => checkEndpoint("/api/v1/revisions", (body) => assert.equal(body.available, true))),
-  ...((await citations()).map((link) => report(link, () => checkCitation(link)))),
+  ...((await citations()).map((link) => report(link, () => checkCitation(link), new URL(link).hostname === "airquality.cpcb.gov.in"))),
 ]);
