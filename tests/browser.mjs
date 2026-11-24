@@ -274,7 +274,7 @@ try {
   assert.equal(await mockAi.getByLabel("Fixed time").inputValue(), "15:00");
   await mockAi.close();
 
-  const bilingual = await browser.newPage({ viewport: { width: 320, height: 750 }, serviceWorkers: "block" });
+  const bilingual = await browser.newPage({ viewport: { width: 320, height: 750 }, serviceWorkers: "block", reducedMotion: "reduce" });
   observe(bilingual);
   await bilingual.route("**/api/v1/aqi?city=noida", (route) => route.fulfill({ json: {
     schemaVersion: 1, location: { label: "Noida", scope: "city" },
@@ -292,6 +292,8 @@ try {
   assert.equal(await bilingual.locator("html").getAttribute("lang"), "hi");
   await bilingual.reload();
   await bilingual.getByRole("heading", { name: "हवा की गुणवत्ता और आपका दिन" }).waitFor();
+  await bilingual.getByText("शहर का मॉडल अनुमान", { exact: true }).waitFor();
+  await bilingual.waitForFunction(() => document.querySelector(".reading-actions button")?.disabled === false);
   await accessibility(bilingual, "Hindi at 320 px");
   assert(await bilingual.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await bilingual.getByRole("button", { name: "English" }).click();
