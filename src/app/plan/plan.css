@@ -1,5 +1,6 @@
 .planner-shell { min-height: 79vh; }
-.assistant-entry { margin-block: 1rem; }
+.assistant-panel { margin-block: 1rem; padding: 1rem; }
+.assistant-panel > h2 { margin-block-end: .75rem; }
 .routine-planner { display: grid; gap: 1rem; }
 .routine-planner legend, .routine-planner h3 { font-weight: 720; }
 .routine-warning { padding: .8rem; border: 2px solid #8a3528; border-radius: .4rem; }

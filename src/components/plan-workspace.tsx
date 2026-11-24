@@ -16,9 +16,9 @@ import { PlanTool } from "./plan-tool";
 import { PlanEditor } from "./plan-editor";
 import { PlanLink } from "./plan-link";
 import { CareHelp } from "./care-help";
+import { PlanPreferences } from "./plan-preferences";
 
 const toolLoading = () => <p role="status">Opening tool…</p>;
-const PlanPreferences = dynamic(() => import("./plan-preferences").then((module) => module.PlanPreferences), { ssr: false, loading: toolLoading });
 const TripComparison = dynamic(() => import("./trip-comparison").then((module) => module.TripComparison), { ssr: false, loading: toolLoading });
 const CommunityShare = dynamic(() => import("./community-share").then((module) => module.CommunityShare), { ssr: false, loading: toolLoading });
 const RoutinePlanner = dynamic(() => import("./routine-planner").then((module) => module.RoutinePlanner), { ssr: false, loading: toolLoading });
@@ -77,9 +77,9 @@ export function PlanWorkspace() {
         </div>
         <div className="plan-reading">
           <span className="eyebrow"><Radio size={16} aria-hidden /> {t("Selected reading")}</span>
-          <strong>{reading ? `${reading.place} · ${reading.value} ${reading.unit}` : "No reading selected"}</strong>
-          {reading && <p>{reading.state} · {reading.time}</p>}
-          <AppLink href="/">{reading ? "View reading details" : "Add a reading"}</AppLink>
+          <strong>{reading ? `${reading.place} · ${reading.value} ${reading.unit}` : t("No reading selected")}</strong>
+          {reading && <p>{t(reading.state)} · {reading.time}</p>}
+          <AppLink href="/">{t(reading ? "View reading details" : "Add a reading")}</AppLink>
         </div>
       </section>
 
@@ -87,39 +87,39 @@ export function PlanWorkspace() {
         updateDraft((current) => ({ ...current, plan: next }));
         setNotice("Plan updated.");
       }} />
-      <p role="status" className="form-notice schedule-notice">{notice}</p>
+      <p role="status" className="form-notice schedule-notice">{t(notice)}</p>
+      <section className="plan-tool assistant-panel" id="preferences" aria-labelledby="assistant-title" tabIndex={-1}>
+        <h2 className="section-title" id="assistant-title">{t("Day-plan assistant")}</h2>
+        <PlanPreferences key={`preferences-${editor}`} />
+      </section>
       <PlanningActions result={solidFuel ? { ...advice, actions: advice.actions.filter(({ area }) => area !== "home") } : advice} />
-      <p className="assistant-entry"><PlanLink to="preferences" className="button button-primary">{t("Ask the day-plan assistant")}</PlanLink></p>
       <div className="plan-tools">
-        <PlanTool id="preferences" title="Adjust preferences" description="Tell AirDaybook which options are available to you.">
-          <PlanPreferences key={`preferences-${editor}`} />
-        </PlanTool>
-        <PlanTool id="routine" title="Plan your daily routine" description="Compare usual activities with suggested changes while keeping fixed times.">
+        <PlanTool id="routine" title={t("Plan your daily routine")} description={t("Compare usual activities with suggested changes while keeping fixed times.")}>
           <RoutinePlanner key={`routine-${editor}`} reading={reading} />
         </PlanTool>
-        <PlanTool id="indoor" title="Improve indoor air" description="Compare practical source-control and filter options.">
+        <PlanTool id="indoor" title={t("Improve indoor air")} description={t("Compare practical source-control and filter options.")}>
           <IndoorToolkit key={`indoor-${editor}`} solidFuel={solidFuel} />
         </PlanTool>
-        <PlanTool id="routes" title="Compare two routes" description="See time outdoors, total travel and the Metro CO₂ estimate.">
+        <PlanTool id="routes" title={t("Compare two routes")} description={t("See time outdoors, total travel and the Metro CO₂ estimate.")}>
           <TripComparison key={`routes-${editor}`} saved={draft.travel} ready={ready} onSave={(travel) => {
             updateDraft((current) => ({ ...current, travel }));
           }} />
         </PlanTool>
-        <PlanTool id="community" title="Write a group note" description="Share a dated reading in English or Hindi.">
+        <PlanTool id="community" title={t("Write a group note")} description={t("Share a dated reading in English or Hindi.")}>
           <CommunityShare key={`share-${editor}`} selection={draft.selection} now={now} ready={ready} travel={draft.travel} />
         </PlanTool>
       </div>
       {!solidFuel && <CareHelp />}
       <div className="plan-footer">
         <div>
-          <p>{persistent ? "Your reading and plan stay on this device." : "Draft storage is unavailable. Your changes last until you close or reload this page."}</p>
+          <p>{t(persistent ? "Your reading and plan stay on this device." : "Draft storage is unavailable. Your changes last until you close or reload this page.")}</p>
         </div>
         <button className="button button-subtle" disabled={!ready || !hasSavedWorkspaceData(draft)} onClick={() => clearDialog.current?.showModal()}><Trash2 size={16} aria-hidden /> {t("Clear saved data")}</button>
       </div>
       <dialog className="entry-dialog clear-dialog" ref={clearDialog} aria-labelledby="clear-title">
         <div className="dialog-top">
-          <div><h2 id="clear-title">{t("Clear saved data?")}</h2><p>This removes the selected reading, plan, daily routine, preferences and route comparison from this device.</p></div>
-          <button type="button" aria-label="Close" className="icon-button" onClick={() => clearDialog.current?.close()}><X size={22} aria-hidden /></button>
+          <div><h2 id="clear-title">{t("Clear saved data?")}</h2><p>{t("This removes the selected reading, plan, daily routine, preferences and route comparison from this device.")}</p></div>
+          <button type="button" aria-label={t("Close")} className="icon-button" onClick={() => clearDialog.current?.close()}><X size={22} aria-hidden /></button>
         </div>
         <div className="form-actions">
           <button className="button button-subtle" onClick={() => clearDialog.current?.close()}>{t("Cancel")}</button>

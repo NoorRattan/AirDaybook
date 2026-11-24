@@ -41,6 +41,13 @@ for (const file of ["/robots.txt", "/sitemap.xml", "/social/airdaybook.jpg", "/i
   const resource = await get(file, { method: "HEAD" });
   assert(resource.ok, `${file} must be published.`);
 }
+const disclosure = await get("/.well-known/security.txt");
+assert(disclosure.ok, "The security disclosure file must be published.");
+assert.match(disclosure.headers.get("content-type") ?? "", /^text\/plain\b/i);
+const disclosureText = await disclosure.text();
+assert.match(disclosureText, /^Contact: https:\/\/github\.com\/NoorRattan\/AirDaybook\/security\/advisories\/new\r?$/m);
+const expiration = Date.parse(/^Expires: (.+)$/m.exec(disclosureText)?.[1] ?? "");
+assert(expiration > Date.now(), "Renew the expiration in security.txt.");
 
 const worker = await get("/sw.js");
 assert(worker.ok, "The offline worker must be published.");

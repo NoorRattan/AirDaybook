@@ -106,7 +106,7 @@ function TravelResults({ comparison }: { comparison: TravelComparison }) {
             </ul>
             <p className="comparison-note">Per passenger, one way, for {comparison.metroKm} km by Delhi Metro. Historical factors from TERI exclude feeder trips.</p>
             <div className="source-links">
-              <a href={metroSources.teri} target="_blank" rel="noopener noreferrer">TERI methodology <ArrowUpRight size={13} aria-hidden /></a>
+              <a href={metroSources.teri} target="_blank" rel="noopener noreferrer">TERI project summary <ArrowUpRight size={13} aria-hidden /></a>
               <a href={metroSources.dmrc} target="_blank" rel="noopener noreferrer">DMRC CarbonLite <ArrowUpRight size={13} aria-hidden /></a>
             </div>
           </>

@@ -14,7 +14,7 @@ export const DELHI_REPLAY = {
     date: "2026-10-30",
     starts: "2026-11-05",
     ends: "2026-11-20",
-    url: "https://caqm.nic.in/FileUploadDomain/WebsiteDocument/GRAP/GRAP%20Orders/22e7a559-e78f-49b0-b3f4-3f4e93cfa80f.pdf",
+    url: "https://caqm.nic.in/FileUploadDomain/WebsiteDocument/GRAP/GRAP%20Orders/22e7a559-e78f-49b0-b3f6-3f4e93cfa80f.pdf",
   },
 } as const;
 

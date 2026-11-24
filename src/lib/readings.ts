@@ -6,7 +6,7 @@ export type { Observation, ReadingSelection } from "./observation-schema";
 
 export const SOURCES = {
   cpcb: "https://airquality.cpcb.gov.in/AQI_India/",
-  indoor: "https://ncdc.mohfw.gov.in/wp-content/uploads/2025/11/Ministrys-DO-dated-01.11.2025.pdf#page=22",
+  indoor: "https://ncdc.mohfw.gov.in/uploads/pdf/Enclosure%201.%20DO%20letter%20from%20Secretary%2C%20DoHFW%20to%20CS_AP%20Advisory_2025.pdf#page=22",
   filtration: "https://www.epa.gov/indoor-air-quality-iaq/air-cleaners-and-air-filters-home",
 } as const;
 

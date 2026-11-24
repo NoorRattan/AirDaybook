@@ -1,6 +1,8 @@
 import { z } from "zod/v4-mini";
 import { containsContactDetails, safeMultilineText } from "./input-text";
 import { preferenceKeys, type PreferenceChanges, type Preferences } from "./preferences";
+import { draftActivities, maxDraftActivities } from "./routine-intake";
+import { routineBlockSchema } from "./routine";
 
 const outcomes = ["apply", "clarify", "no_change"] as const;
 const directives = ["enable", "disable", "unchanged"] as const;
@@ -27,7 +29,8 @@ export const revisionRequestSchema = z.strictObject({
     z.refine((text) => Array.from(text).length >= 1 && Array.from(text).length <= 500 && !containsContactDetails(text))),
   preferences: preferencesSchema,
   assistant: z.optional(z.literal(true)),
-});
+  routineDraft: z.optional(z.literal(true)),
+}).check(z.refine(({ assistant, routineDraft }) => !routineDraft || assistant === true));
 export type RevisionRequest = z.infer<typeof revisionRequestSchema>;
 
 export const revisionResponseSchema = z.strictObject({
@@ -35,7 +38,8 @@ export const revisionResponseSchema = z.strictObject({
   outcome: z.enum(outcomes),
   changes: z.partial(z.strictObject(booleanFields)),
   tool: z.optional(tool),
-}).check(z.refine(({ changes, outcome, tool }) => Boolean(Object.keys(changes).length || tool) === (outcome === "apply")));
+  activities: z.optional(z.array(z.omit(routineBlockSchema, { id: true })).check(z.maxLength(maxDraftActivities))),
+}).check(z.refine(({ changes, outcome, tool, activities }) => Boolean(Object.keys(changes).length || tool || activities?.length) === (outcome === "apply")));
 export type RevisionResponse = z.infer<typeof revisionResponseSchema>;
 
 const modelResultSchema = z.strictObject({
@@ -49,17 +53,26 @@ const modelResultSchema = z.strictObject({
 });
 
 const assistantResultSchema = z.extend(modelResultSchema, { tool: z.nullable(tool) });
-export function revisionModelSchema(assistant: boolean | undefined) {
-  return z.toJSONSchema(assistant ? assistantResultSchema : modelResultSchema, { target: "draft-7" });
+const activityResultSchema = z.extend(assistantResultSchema, { activityQuotes: z.array(z.string()) });
+export function revisionModelSchema(assistant: boolean | undefined, routineDraft = false) {
+  const schema = routineDraft ? activityResultSchema : assistant ? assistantResultSchema : modelResultSchema;
+  return z.toJSONSchema(schema, { target: "draft-7" });
 }
 
 export function interpretationToRevision(data: unknown, request: RevisionRequest): RevisionResponse | null {
-  const result = request.assistant ? assistantResultSchema.safeParse(data) : modelResultSchema.safeParse(data);
+  const result = request.routineDraft ? activityResultSchema.safeParse(data)
+    : request.assistant ? assistantResultSchema.safeParse(data) : modelResultSchema.safeParse(data);
   if (!result.success) return null;
   const { outcome, preferences } = result.data;
   const focus = "tool" in result.data ? result.data.tool as (typeof assistantTools)[number] | null : null;
+  let activities: ReturnType<typeof draftActivities> = [];
+  if ("activityQuotes" in result.data) {
+    const quotes = result.data.activityQuotes as string[];
+    if (quotes.length > maxDraftActivities || quotes.some((quote) => quote.length > 200)) return null;
+    activities = draftActivities(request.text, quotes);
+  }
   const submittedChanges = preferenceKeys.filter((key) => preferences[key] !== "unchanged");
-  if (Boolean(submittedChanges.length || focus) !== (outcome === "apply")) return null;
+  if (Boolean(submittedChanges.length || focus || activities.length) !== (outcome === "apply")) return null;
 
   const changes: PreferenceChanges = {};
   for (const key of submittedChanges) {
@@ -68,9 +81,10 @@ export function interpretationToRevision(data: unknown, request: RevisionRequest
   }
   return {
     revisionId: request.revisionId,
-    outcome: outcome === "apply" && Object.keys(changes).length === 0 && !focus ? "no_change" : outcome,
+    outcome: outcome === "apply" && Object.keys(changes).length === 0 && !focus && !activities.length ? "no_change" : outcome,
     changes,
     ...(focus ? { tool: focus } : {}),
+    ...(activities.length ? { activities } : {}),
   };
 }
 

@@ -112,7 +112,7 @@ try {
   await accessibility(page, "My Plan");
 
   await plannerLink(page, "Preferences").press("Enter");
-  await page.waitForFunction(() => document.activeElement === document.querySelector("#preferences summary"));
+  await page.waitForFunction(() => document.activeElement === document.getElementById("preferences"));
   if (!availability.available) await page.getByText(/AI suggestions are unavailable/).waitFor();
   await page.getByRole("combobox", { name: "Air purifier available" }).selectOption("true");
   await page.getByRole("heading", { name: "Use the purifier in the room you spend time in" }).waitFor();
@@ -244,6 +244,17 @@ try {
       return;
     }
     const { revisionId, ...submitted } = route.request().postDataJSON();
+    if (submitted.routineDraft) {
+      assert.deepEqual(Object.keys(submitted).sort(), ["assistant", "preferences", "routineDraft", "text"]);
+      assert.match(submitted.text, /Evening walk at 18:00/);
+      assert.equal(submitted.preferences.hasPurifier, true);
+      submissions++;
+      await route.fulfill({ json: { revisionId, outcome: "apply", changes: {}, activities: [
+        { name: "Evening walk", time: "18:00", minutes: 30, outdoors: true, fixed: false, strenuous: false },
+        { name: "Conflicting errand", time: "14:55", minutes: 15, outdoors: true, fixed: false, strenuous: false },
+      ] } });
+      return;
+    }
     assert.deepEqual(Object.keys(submitted).sort(), ["assistant", "preferences", "text"]);
     if (++submissions === 1) {
       await route.fulfill({ status: 429, headers: { "Retry-After": "120" }, contentType: "text/html", body: "<p>Rate limited</p>" });
@@ -272,6 +283,27 @@ try {
   await mockAi.getByRole("button", { name: "Apply changes" }).click();
   await mockAi.getByRole("heading", { name: "Use the purifier in the room you spend time in" }).waitFor();
   assert.equal(await mockAi.getByLabel("Fixed time").inputValue(), "15:00");
+  await mockAi.getByRole("button", { name: "Use a sample routine" }).click();
+  await whatChanged.fill(`${await whatChanged.inputValue()}; Conflicting errand at 14:55 for 15 minutes outdoors`);
+  await mockAi.getByRole("button", { name: "Suggest a routine draft" }).click();
+  await mockAi.getByText("Evening walk", { exact: true }).waitFor();
+  await mockAi.getByText(/Some activities could not fit/).waitFor();
+  assert.equal(await mockAi.getByText("Conflicting errand", { exact: true }).count(), 0);
+  await mockAi.getByRole("button", { name: "Apply changes" }).click();
+  await mockAi.getByRole("status").getByText("Activities added to your routine.").waitFor();
+  await mockAi.context().setOffline(true);
+  await whatChanged.fill("Dinner at 20:00 for 45 minutes indoors, fixed");
+  await mockAi.getByRole("button", { name: "Draft activities on this device" }).click();
+  await mockAi.getByText("Dinner", { exact: true }).waitFor();
+  await mockAi.getByRole("button", { name: "Apply changes" }).click();
+  await mockAi.getByRole("status").getByText("Activities added to your routine.").waitFor();
+  await mockAi.context().setOffline(false);
+  await mockAi.reload();
+  await plannerLink(mockAi, "Daily routine").click();
+  await mockAi.getByText("18:00 · Evening walk", { exact: true }).waitFor();
+  await mockAi.getByText("20:00 · Dinner", { exact: true }).waitFor();
+  assert.equal(await mockAi.getByLabel("Fixed time").inputValue(), "15:00");
+  assert.equal(submissions, 3);
   await mockAi.close();
 
   const bilingual = await browser.newPage({ viewport: { width: 320, height: 750 }, serviceWorkers: "block", reducedMotion: "reduce" });

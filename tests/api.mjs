@@ -185,6 +185,20 @@ test("assistant output is grounded in an allowed action, and provider failures s
   });
 });
 
+test("routine revision accepts only activities grounded in submitted English and Hindi text", async () => {
+  await withRelease({}, async (release) => {
+    await expectError(await submit(release, examples.itinerary, { input: { routineDraft: true } }), 400, "invalid_request");
+    const response = await submit(release, examples.itinerary, { input: { assistant: true, routineDraft: true } });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      revisionId, outcome: "apply", changes: {}, activities: [
+        { name: "Evening walk", time: "18:00", minutes: 30, outdoors: true, fixed: false, strenuous: false },
+        { name: "रात का खाना", time: "20:00", minutes: 45, outdoors: false, fixed: true, strenuous: false },
+      ],
+    });
+  });
+});
+
 test("SQLite concurrency, burst and daily counters survive alongside another process and across restarts", async () => {
   const temp = await mkdtemp(join(tmpdir(), "airdaybook-shared-"));
   const settings = { AI_QUOTA_DB_PATH: join(temp, "quota.sqlite"), AI_DAILY_LIMIT: "2", AI_BURST_PER_MINUTE: "2" };

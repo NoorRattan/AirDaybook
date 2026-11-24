@@ -30,6 +30,14 @@ const assistantInstructions = [
 ].join(" ");
 const providerJsonSchema = revisionModelSchema(false);
 const assistantJsonSchema = revisionModelSchema(true);
+const activityJsonSchema = revisionModelSchema(true, true);
+const activityInstructions = [
+  "For a daily routine request, you may also select up to four activity lines.",
+  "Copy each selected line verbatim from the text as an activityQuotes string. The lines must be separated by newlines or semicolons.",
+  "Select lines only if they have an activity name, an explicit clock time with minutes, a duration in minutes, and a stated indoor or outdoor setting.",
+  "Never invent or rewrite the quoted line. Return an empty list when no line meets these requirements.",
+  "An eligible activity line is another allowed reason to use apply.",
+].join(" ");
 
 type Interpretation =
   | { kind: "success"; result: RevisionResponse }
@@ -48,15 +56,15 @@ export async function interpretRevision(
       method: "POST",
       headers: { Authorization: `Bearer ${config.key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: config.model, temperature: 0, max_completion_tokens: 400,
+        model: config.model, temperature: 0, max_completion_tokens: request.routineDraft ? 700 : 400,
         reasoning_effort: "low", include_reasoning: false,
         messages: [
-          { role: "system", content: request.assistant ? instructions + " " + assistantInstructions : instructions },
+          { role: "system", content: [instructions, request.assistant && assistantInstructions, request.routineDraft && activityInstructions].filter(Boolean).join(" ") },
           { role: "user", content: JSON.stringify({ text: request.text, preferences: request.preferences }) },
         ],
         response_format: {
           type: "json_schema",
-          json_schema: { name: "airdaybook_revision", strict: true, schema: request.assistant ? assistantJsonSchema : providerJsonSchema },
+          json_schema: { name: "airdaybook_revision", strict: true, schema: request.routineDraft ? activityJsonSchema : request.assistant ? assistantJsonSchema : providerJsonSchema },
         },
       }),
       signal,

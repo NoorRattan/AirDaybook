@@ -2,6 +2,7 @@ import { z } from "zod/v4-mini";
 import { PLAN_TIME } from "./plan";
 import { safeLabel } from "./input-text";
 import type { readingView } from "./readings";
+import { maxRoutineBlocks } from "./routine-intake";
 
 export const routineBlockSchema = z.strictObject({
   id: z.string().check(z.regex(/^[\w-]{1,64}$/)),
@@ -13,7 +14,7 @@ export const routineBlockSchema = z.strictObject({
   strenuous: z.boolean(),
 });
 export const routineSchema = z.strictObject({
-  blocks: z.array(routineBlockSchema).check(z.maxLength(12)),
+  blocks: z.array(routineBlockSchema).check(z.maxLength(maxRoutineBlocks)),
   extraPrecautions: z.boolean(),
   solidFuel: z.boolean(),
   outdoorWork: z.boolean(),

@@ -7,6 +7,7 @@ export const examples = Object.freeze({
   unavailable: "Return the fixture with a provider service error.",
   timeout: "Return the fixture with an unfinished provider response.",
   assistant: "मेट्रो और कारपूल की तुलना करें।",
+  itinerary: "Evening walk at 18:00 for 30 minutes outdoors, flexible; रात का खाना २०:०० बजे ४५ मिनट अंदर, तय",
   clarify: "I might have forgotten an option.",
   truncated: "End the fixture before completing its response.",
   oversized: "Return more than the provider response budget.",
@@ -50,6 +51,11 @@ if (process.env.AIRDAYBOOK_TEST_PROVIDER === "1") {
       assert(payload.response_format.json_schema.schema.required.includes("tool"));
       result.tool = "routes";
       result.preferences.hasPurifier = "unchanged";
+    } else if (submitted.text === examples.itinerary) {
+      assert(payload.response_format.json_schema.schema.required.includes("activityQuotes"));
+      result.tool = null;
+      result.preferences.hasPurifier = "unchanged";
+      result.activityQuotes = [...submitted.text.split("; "), "Errand at 17:00 for 10 minutes outdoors"];
     } else if (submitted.text === examples.clarify) {
       result.outcome = "clarify";
       result.preferences.hasPurifier = "unchanged";

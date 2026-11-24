@@ -4,6 +4,7 @@ import { useLocale } from "./locale";
 
 import { useState, type FormEvent } from "react";
 import { emptyRoutine, particleAirflow, routineAdvice, routineBlockSchema, type Routine } from "@/lib/routine";
+import { maxRoutineBlocks } from "@/lib/routine-intake";
 import type { readingView } from "@/lib/readings";
 import { useDraftActions, useDraftState } from "./draft-provider";
 import { CareHelp } from "./care-help";
@@ -34,7 +35,7 @@ export function RoutinePlanner({ reading }: { reading: ReturnType<typeof reading
 
   function addBlock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!ready || routine.blocks.length >= 12) return;
+    if (!ready || routine.blocks.length >= maxRoutineBlocks) return;
     const form = event.currentTarget;
     const fields = new FormData(form);
     const block = routineBlockSchema.safeParse({
@@ -46,7 +47,7 @@ export function RoutinePlanner({ reading }: { reading: ReturnType<typeof reading
       setError("Enter an activity name, a valid time and a duration of 1–720 minutes.");
       return;
     }
-    save((current) => current.blocks.length >= 12 ? current : { ...current, blocks: [...current.blocks, block.data] });
+    save((current) => current.blocks.length >= maxRoutineBlocks ? current : { ...current, blocks: [...current.blocks, block.data] });
     form.reset();
     setError("");
     setNotice("Activity added.");
@@ -56,7 +57,7 @@ export function RoutinePlanner({ reading }: { reading: ReturnType<typeof reading
     <section className="routine-planner">
       <fieldset className="routine-options" disabled={!ready}>
         <legend>{t("Local planning preferences")}</legend>
-        <p className="muted">These selections stay on this device.</p>
+        <p className="muted">{t("These selections stay on this device.")}</p>
         {conditions.map(([key, label]) => (
           <label key={key} className="check-label">
             <input type="checkbox" checked={routine[key]} onChange={(event) => {
@@ -66,15 +67,15 @@ export function RoutinePlanner({ reading }: { reading: ReturnType<typeof reading
           </label>
         ))}
       </fieldset>
-      {reading?.kind === "historical" && <p className="muted">The guidance below uses the historical replay.</p>}
-      <p>{result.guidance} <a className="routine-source" href={advisory} target="_blank" rel="noopener noreferrer">NCDC guidance</a></p>
+      {reading?.kind === "historical" && <p className="muted">{t("The guidance below uses the historical replay.")}</p>}
+      <p>{result.guidance} <a className="routine-source" href={advisory} target="_blank" rel="noopener noreferrer">{t("NCDC guidance")}</a></p>
       {result.high && routine.outdoorWork && <p>If outdoor work is essential, take breaks away from heavy traffic or dust where practical and follow workplace safety requirements.</p>}
       {routine.community && <p>Coordinate shared trips and choose indoor space for flexible gatherings where available.</p>}
       <form className="plan-form" onSubmit={addBlock}>
-        <fieldset disabled={!ready || routine.blocks.length >= 12}>
+        <fieldset disabled={!ready || routine.blocks.length >= maxRoutineBlocks}>
           <legend>{t("Add an activity")}</legend>
           <div className="routine-fields">
-            <label>{t("Activity")}<input name="activity" required maxLength={100} placeholder="e.g. Evening walk" /></label>
+            <label>{t("Activity")}<input name="activity" required maxLength={100} placeholder={t("e.g. Evening walk")} /></label>
             <label>{t("Start time")}<input name="time" type="time" required /></label>
             <label>{t("Minutes")}<input name="minutes" type="number" required min={1} max={720} /></label>
           </div>
@@ -85,24 +86,24 @@ export function RoutinePlanner({ reading }: { reading: ReturnType<typeof reading
           </div>
           <button className="button button-primary" type="submit">{t("Add to routine")}</button>
         </fieldset>
-        {error && <p className="form-error" role="alert">{error}</p>}
+        {error && <p className="form-error" role="alert">{t(error)}</p>}
       </form>
-      <p role="status" className="form-notice">{notice}</p>
+      <p role="status" className="form-notice">{t(notice)}</p>
       {result.blocks.length > 0 && (
         <>
           <h3>{t("Usual routine and suggested changes")}</h3>
           <ul className="routine-timeline">
             {result.blocks.map((block) => (
               <li key={block.id}>
-                <div><strong>{block.time} · {block.name}</strong><p>{block.minutes} min · {block.outdoors ? "Outdoors" : "Indoors"} · {block.fixed ? "Fixed time" : "Flexible"}{block.moveInside ? " → Move indoors" : ""}</p></div>
-                <button className="button button-subtle" type="button" aria-label={`Remove ${block.name} at ${block.time}`} onClick={() => {
+                <div><strong>{block.time} · {block.name}</strong><p>{block.minutes} {t("min")} · {t(block.outdoors ? "Outdoors" : "Indoors")} · {t(block.fixed ? "Fixed time" : "Flexible")}{block.moveInside ? ` → ${t("Move indoors")}` : ""}</p></div>
+                <button className="button button-subtle" type="button" aria-label={t("Remove {activity} at {time}").replace("{time}", block.time).replace("{activity}", () => block.name)} onClick={() => {
                   save((current) => ({ ...current, blocks: current.blocks.filter(({ id }) => id !== block.id) }));
                   setNotice("Activity removed.");
                 }}>{t("Remove")}</button>
               </li>
             ))}
           </ul>
-          <p><strong>{t("Outdoor time for these activities")}</strong> {result.outdoorMinutes} → {result.outdoorMinutes - result.removedMinutes} min. Strenuous outdoor time moved indoors {result.strenuousMinutes} min.</p>
+          <p><strong>{t("Outdoor time for these activities")}</strong> {result.outdoorMinutes} → {result.outdoorMinutes - result.removedMinutes} {t("min")}. {t("Strenuous outdoor time moved indoors")} {result.strenuousMinutes} {t("min")}.</p>
         </>
       )}
     </section>
@@ -119,20 +120,21 @@ export function IndoorToolkit({ solidFuel }: { solidFuel: boolean }) {
   return (
     <section className="routine-planner">
       <ul className="routine-timeline">
-        <li><div><strong>Reduce smoke at the source</strong><p>Skip indoor incense, coils and smoking. Use an exhaust fan that vents outdoors when cooking, and avoid charring food.</p></div></li>
-        <li><div><strong>Check conditions before airing</strong><p>Look up the current reading before opening windows for routine airing. Keep required cooking and appliance ventilation available.</p></div></li>
-        <li><div><strong>Use one room for particle filtration</strong><p>Run a purifier sized for the room you use most. Follow the device’s filter maintenance instructions and avoid units that intentionally produce ozone.</p></div></li>
-        <li><div><strong>Compare a low-cost filter</strong><p>EPA publishes MERV 13 box-fan designs and electrical safety considerations. Use equipment rated for your local power supply.</p><a className="routine-source" href="https://www.epa.gov/emergencies-iaq/diy-air-cleaners" target="_blank" rel="noopener noreferrer">EPA instructions and safety checks</a></div></li>
+        <li><div><strong>{t("Reduce smoke at the source")}</strong><p>{t("Skip indoor incense, coils and smoking. Use an exhaust fan that vents outdoors when cooking, and avoid charring food.")}</p></div></li>
+        <li><div><strong>{t("Check conditions before airing")}</strong><p>{t("Look up the current reading before opening windows for routine airing. Keep required cooking and appliance ventilation available.")}</p></div></li>
+        <li><div><strong>{t("Use one room for particle filtration")}</strong><p>{t("Run a purifier sized for the room you use most. Follow the device’s filter maintenance instructions and avoid units that intentionally produce ozone.")}</p></div></li>
+        <li><div><strong>{t("Clean settled dust with a damp cloth or mop")}</strong><p>{t("Damp cleaning keeps settled particles from going back into the air.")}</p><a className="routine-source" href="https://www.epa.gov/emergencies-iaq/create-clean-room-protect-indoor-air-quality-during-wildfire" target="_blank" rel="noopener noreferrer">{t("EPA cleaner-air room guidance")}</a></div></li>
+        <li><div><strong>{t("Compare a low-cost filter")}</strong><p>{t("EPA publishes MERV 13 box-fan designs and electrical safety considerations. Use equipment rated for your local power supply.")}</p><a className="routine-source" href="https://www.epa.gov/emergencies-iaq/diy-air-cleaners" target="_blank" rel="noopener noreferrer">{t("EPA instructions and safety checks")}</a></div></li>
       </ul>
       <fieldset>
         <legend>{t("Calculate particle clean-air delivery")}</legend>
         <div className="routine-fields">
-          <label>Room area (m²)<input type="number" value={area} min={1} max={500} onChange={(event) => setArea(event.target.value)} /></label>
-          <label>Ceiling height (m)<input type="number" value={height} min={0.5} max={20} step="0.1" onChange={(event) => setHeight(event.target.value)} /></label>
-          <label>Target air changes per hour<input type="number" value={changes} min={1} max={20} onChange={(event) => setChanges(event.target.value)} /></label>
+          <label>{t("Room area (m²)")}<input type="number" value={area} min={1} max={500} onChange={(event) => setArea(event.target.value)} /></label>
+          <label>{t("Ceiling height (m)")}<input type="number" value={height} min={0.5} max={20} step="0.1" onChange={(event) => setHeight(event.target.value)} /></label>
+          <label>{t("Target air changes per hour")}<input type="number" value={changes} min={1} max={20} onChange={(event) => setChanges(event.target.value)} /></label>
         </div>
-        {cadr !== null && <p><strong>{cadr} m³/h</strong> estimated particle CADR at your selected air-change target.</p>}
-        <a className="routine-source" href="https://www.epa.gov/indoor-air-quality-iaq/guide-air-cleaners-home" target="_blank" rel="noopener noreferrer">EPA room sizing and filter guidance</a>
+        {cadr !== null && <p><strong>{cadr} m³/h</strong> {t("estimated particle CADR at your selected air-change target.")}</p>}
+        <a className="routine-source" href="https://www.epa.gov/indoor-air-quality-iaq/guide-air-cleaners-home" target="_blank" rel="noopener noreferrer">{t("EPA room sizing and filter guidance")}</a>
       </fieldset>
     </section>
   );

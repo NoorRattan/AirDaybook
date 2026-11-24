@@ -26,7 +26,7 @@ export const metroMethods = [
 ] as const;
 
 export const metroSources = {
-  teri: "https://www.teriin.org/sites/default/transport/Per_passenger_emission_in_Delhi_Different_Modes.pdf#page=9",
+  teri: "https://www.teriin.org/files/TERI-Annual-Report-2023-24.pdf#page=60",
   dmrc: "https://delhimetrorail.com/carbonlite-metro-travel",
 } as const;
 
