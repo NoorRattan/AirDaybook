@@ -11,6 +11,10 @@ const documentPolicy = [
 const config: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  async redirects() {
+    // Vercel exposes the internal App Router fallback as a direct URL.
+    return [{ source: "/_not-found", destination: "/404", permanent: false }];
+  },
   async headers() {
     return [{
       source: "/sw.js",

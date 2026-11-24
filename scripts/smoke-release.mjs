@@ -45,6 +45,9 @@ for (const path of ["/missing-release-smoke-page", "/plan/missing-release-smoke-
   assertScriptPolicy(html, path);
   assert.match(missing.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
 }
+const alias = await get("/_not-found", { redirect: "manual" });
+assert.equal(alias.status, 307, "The public fallback alias must redirect to the protected 404.");
+assert.equal(new URL(alias.headers.get("location") ?? "/", origin).href, new URL("/404", origin).href);
 const manifestResponse = await get("/manifest.webmanifest");
 assert(manifestResponse.ok, "The install manifest must be published.");
 const installManifest = await manifestResponse.json();
